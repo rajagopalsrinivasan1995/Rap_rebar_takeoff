@@ -1,0 +1,3849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A standalone imperial rebar estimation takeoff sheet with automatic quantity and weight calculations.">
+  <title>Rebar Estimation Takeoff</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #183247;
+      --muted: #64798b;
+      --line: #d7e2e9;
+      --paper: #fff;
+      --canvas: #edf3f7;
+      --navy: #143c58;
+      --blue: #26749c;
+      --soft-blue: #eaf3f8;
+      --input: #fffaf0;
+      --green: #34755d;
+      --red: #a94338;
+      --shadow: 0 12px 32px rgb(23 54 76 / 6%), 0 2px 6px rgb(23 54 76 / 3%);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 50% -20%, rgb(213 230 241 / 75%), transparent 58%),
+        var(--canvas);
+      font-size: 14px;
+    }
+
+    body.setup-screen {
+      background:
+        radial-gradient(ellipse at 12% 18%, rgb(255 255 255 / 92%), transparent 36%),
+        radial-gradient(ellipse at 88% 82%, rgb(191 219 237 / 42%), transparent 40%),
+        linear-gradient(120deg, #eff6fa 0%, #e3eef5 54%, #edf4f8 100%);
+    }
+
+    button, input, select { font: inherit; }
+
+    .page {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 26px clamp(16px, 3.2vw, 48px) 48px;
+    }
+
+    .topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgb(120 149 168 / 22%);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .topline-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+    .topline-tools { display: flex; flex-wrap: wrap; gap: 7px; }
+    .topline-tools button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+
+    .saved-indicator { letter-spacing: 0; text-transform: none; }
+    .saved-indicator::before {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      content: "";
+    }
+
+    .saved-indicator[data-state="warning"]::before { background: #c38329; }
+    .saved-indicator[data-state="error"]::before { background: var(--red); }
+
+    .hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(30px, 3.8vw, 42px);
+      font-weight: 750;
+      letter-spacing: -.045em;
+      line-height: 1.08;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+    .toolbar .row-tools { display: flex; flex-wrap: wrap; gap: 9px; }
+    .toolbar-text-action { min-height: 38px; padding: 8px 10px; font-size: 12px; white-space: nowrap; }
+    .icon-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      min-height: 38px;
+      padding: 8px;
+      color: #244b65;
+    }
+    .icon-action .button-icon {
+      display: block;
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .toolbar .icon-action:disabled { color: #9aa9b2; background: #f5f7f8; cursor: not-allowed; box-shadow: none; }
+    .toolbar .history-tools { display: flex; gap: 9px; }
+
+    button {
+      min-height: 40px;
+      padding: 9px 15px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--paper);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 650;
+      box-shadow: 0 1px 2px rgb(18 51 72 / 4%);
+      transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
+    }
+
+    button:hover { border-color: #adc2d1; background: #f7fafc; box-shadow: 0 3px 9px rgb(18 51 72 / 8%); }
+    button:active { transform: translateY(1px); }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid #99c9e4;
+      outline-offset: 2px;
+    }
+
+    button.primary { border-color: var(--navy); color: #fff; background: linear-gradient(135deg, #194967, #12354e); box-shadow: 0 3px 8px rgb(20 60 88 / 18%); }
+    button.primary:hover { border-color: var(--blue); background: var(--blue); }
+    button.danger { color: var(--red); }
+    button.icon-button { min-height: 32px; padding: 5px 9px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      margin: 0;
+      flex: 0 1 300px;
+    }
+
+    .stat-card, .panel {
+      border: 1px solid rgb(211 224 233 / 92%);
+      border-radius: 13px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .stat-label, .stat-value, .stat-unit {
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .stat-value {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-left: 0;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      color: var(--navy);
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+    .stat-label { white-space: nowrap; }
+    .stat-unit { margin-left: 0; }
+
+    .job-identity { min-width: 0; }
+    .job-title-line { display: flex; align-items: baseline; flex-wrap: nowrap; gap: 4px 12px; }
+    .job-id, .job-name {
+      color: var(--navy);
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 750;
+      letter-spacing: .02em;
+      text-transform: none;
+    }
+    .panel-heading .job-title-line .job-name {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 16px;
+      font-weight: 750;
+      letter-spacing: .02em;
+    }
+    .job-meta { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .setup-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(420px, 680px);
+      align-items: center;
+      gap: clamp(36px, 7vw, 100px);
+      max-width: 1440px;
+      min-height: min(780px, calc(100vh - 80px));
+      margin: 0 auto;
+      overflow-x: clip;
+    }
+    .setup-intro {
+      position: relative;
+      z-index: 0;
+      max-width: 620px;
+      isolation: isolate;
+    }
+    .setup-intro::before,
+    .setup-intro::after {
+      position: absolute;
+      z-index: -1;
+      pointer-events: none;
+      content: "";
+    }
+    .setup-intro::before {
+      top: 50%;
+      left: clamp(-115px, -7vw, -45px);
+      width: clamp(280px, 36vw, 480px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0%) 0 29%, rgb(255 255 255 / 56%) 30% 30.5%, transparent 31%),
+        radial-gradient(circle at 50% 50%, transparent 0 45%, rgb(38 116 156 / 9%) 45.3% 45.8%, transparent 46.2%),
+        radial-gradient(circle, rgb(174 211 232 / 42%), rgb(202 226 240 / 18%) 48%, transparent 72%);
+      transform: translateY(-50%);
+      animation: setup-glow-drift 16s ease-in-out infinite;
+    }
+    .setup-intro::after {
+      top: 50%;
+      left: -8px;
+      width: clamp(250px, 32vw, 420px);
+      height: clamp(250px, 32vw, 420px);
+      background:
+        repeating-linear-gradient(0deg, transparent 0 31px, rgb(38 116 156 / 7%) 32px 33px),
+        repeating-linear-gradient(90deg, transparent 0 31px, rgb(38 116 156 / 7%) 32px 33px);
+      mask-image: radial-gradient(ellipse, #000 12%, transparent 72%);
+      transform: translateY(-50%);
+      animation: setup-grid-drift 24s linear infinite;
+    }
+    @keyframes setup-glow-drift {
+      0%, 100% { transform: translate3d(0, -50%, 0) scale(1); }
+      50% { transform: translate3d(10px, calc(-50% - 8px), 0) scale(1.035); }
+    }
+    @keyframes setup-grid-drift {
+      0%, 100% { translate: 0 0; }
+      50% { translate: 8px -7px; }
+    }
+    .setup-intro h1 { margin: 0; color: var(--navy); font-size: clamp(38px, 5vw, 58px); font-weight: 750; letter-spacing: -.045em; line-height: 1.08; }
+    .setup-intro .subtitle { max-width: 600px; }
+    .project-setup {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: clamp(22px, 4vw, 40px);
+      border: 1px solid rgb(255 255 255 / 92%);
+      border-radius: 18px;
+      background: rgb(255 255 255 / 96%);
+      box-shadow: 0 24px 65px rgb(23 54 76 / 10%), 0 3px 10px rgb(23 54 76 / 4%);
+    }
+    .project-setup h2 { margin: 0; color: var(--navy); font-size: clamp(22px, 3vw, 28px); font-weight: 750; letter-spacing: -.025em; }
+    .project-setup > p { margin: 10px 0 24px; color: var(--muted); line-height: 1.6; }
+    .project-form { 
+      display: grid; 
+      grid-template-columns: 1fr; 
+      gap: 16px; 
+    }
+    .project-form label { 
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      align-items: center;
+      gap: 16px;
+      color: #506779; 
+      font-size: 13px; 
+      font-weight: 700; 
+    }
+    .job-id-picker { position: relative; display: flex; gap: 6px; }
+    .job-id-picker input { flex: 1; padding-right: 11px !important; }
+    .job-picker-toggle {
+      min-width: 42px;
+      min-height: 42px;
+      padding: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .saved-job-dropdown {
+      position: absolute;
+      top: calc(100% + 5px);
+      right: 0;
+      left: 0;
+      z-index: 5;
+      max-height: 220px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+    .saved-job-option {
+      display: block;
+      width: 100%;
+      min-height: 38px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 0;
+      text-align: left;
+      box-shadow: none;
+    }
+    .saved-job-option + .saved-job-option { border-top: 1px solid #edf1f4; }
+    .saved-job-option:hover, .saved-job-option:focus-visible { background: var(--soft-blue); }
+    .saved-job-empty { margin: 0; padding: 10px 11px; color: var(--muted); font-size: 12px; font-weight: 400; }
+    .project-form input {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--input);
+    }
+    .project-form-actions { display: flex; justify-content: flex-end; }
+    .project-feedback { min-height: 20px; margin: 12px 0 0; color: var(--red); font-size: 12px; }
+    [hidden] { display: none !important; }
+
+    /* Login & Full-Page Setup Layout */
+    .badge-tag {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgb(38 116 156 / 12%);
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .setup-features {
+      display: grid;
+      gap: 12px;
+      margin-top: 26px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #3b5a70;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .feature-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #d4e7f2;
+      color: #174f72;
+      font-size: 12px;
+      font-weight: 750;
+      flex-shrink: 0;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: clamp(24px, 4vw, 38px);
+      border: 1px solid rgb(255 255 255 / 92%);
+      border-radius: 18px;
+      background: rgb(255 255 255 / 96%);
+      box-shadow: 0 24px 65px rgb(23 54 76 / 10%), 0 3px 10px rgb(23 54 76 / 4%);
+    }
+    .login-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #eef3f6;
+    }
+    .login-avatar-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #eaf3f8;
+      color: var(--blue);
+      flex-shrink: 0;
+    }
+    .login-header h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(20px, 2.8vw, 24px);
+      font-weight: 750;
+      letter-spacing: -.025em;
+    }
+    .login-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .login-form {
+      display: grid;
+      gap: 16px;
+    }
+    .login-form label {
+      display: grid;
+      gap: 6px;
+      color: #506779;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .login-form input[type="text"],
+    .login-form input[type="password"] {
+      width: 100%;
+      min-height: 44px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--input);
+      box-shadow: inset 0 1px 2px rgb(24 50 71 / 4%);
+      font-size: 14px;
+    }
+    .login-form input:focus {
+      border-color: #5c9bbd;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgb(38 116 156 / 12%);
+    }
+    .password-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .password-wrapper input {
+      padding-right: 42px !important;
+    }
+    .toggle-password-btn {
+      position: absolute;
+      right: 6px;
+      min-height: 32px;
+      min-width: 32px;
+      padding: 6px;
+      border: none;
+      background: transparent;
+      color: #728796;
+      cursor: pointer;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .toggle-password-btn:hover {
+      color: var(--ink);
+      background: transparent;
+      box-shadow: none;
+    }
+    .login-options {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .remember-label {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: #556c7d;
+      font-weight: 600 !important;
+      font-size: 13px !important;
+    }
+    .remember-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: var(--blue);
+    }
+    .forgot-password-link {
+      border: none;
+      background: transparent;
+      padding: 4px 0;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 650;
+      text-decoration: underline;
+      cursor: pointer;
+      box-shadow: none;
+      transition: color .15s ease;
+    }
+    .forgot-password-link:hover {
+      color: var(--navy);
+      background: transparent;
+      box-shadow: none;
+    }
+    dialog.forgot-password-dialog {
+      width: min(540px, calc(100% - 32px)) !important;
+      max-width: 540px !important;
+      overflow: visible;
+    }
+    .forgot-result-box {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border: 1px solid #d2e4f0;
+      border-radius: 10px;
+      background: #f4f8fb;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .forgot-result-box.error {
+      border-color: #f2c0bc;
+      background: #fff6f5;
+      color: var(--red);
+    }
+    .forgot-result-box.success {
+      border-color: #bce0d0;
+      background: #f0faf5;
+      color: var(--green);
+    }
+    .full-width-btn {
+      width: 100%;
+      min-height: 44px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .full-page-setup {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 10px 0 60px;
+      animation: fadeIn .2s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .setup-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgb(120 149 168 / 22%);
+    }
+    .brand-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-title {
+      color: var(--navy);
+      font-size: 17px;
+      font-weight: 750;
+      letter-spacing: -.02em;
+    }
+    .brand-divider {
+      color: #a7bcc8;
+      font-size: 14px;
+    }
+    .brand-sub {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .user-session-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-greeting {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .user-indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .logout-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: #4f6777;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgb(18 51 72 / 4%);
+      transition: all .15s ease;
+    }
+    .logout-btn:hover {
+      border-color: #f2c0bc;
+      color: var(--red);
+      background: #fff6f5;
+    }
+    .full-page-card {
+      padding: 32px 28px;
+      border: 1px solid rgb(255 255 255 / 92%);
+      border-radius: 18px;
+      background: rgb(255 255 255 / 96%);
+      box-shadow: 0 24px 65px rgb(23 54 76 / 10%), 0 3px 10px rgb(23 54 76 / 4%);
+    }
+    .full-page-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #edf2f5;
+    }
+    .card-title-group h2 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(22px, 3vw, 28px);
+      font-weight: 750;
+      letter-spacing: -.025em;
+    }
+    .card-title-group p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .saved-jobs-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: #eaf3f8;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .saved-jobs-quick-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      padding: 12px 16px;
+      background: #f4f8fb;
+      border: 1px solid #dbe7ef;
+      border-radius: 10px;
+      flex-wrap: wrap;
+    }
+    .quick-jobs-label {
+      font-size: 11px;
+      font-weight: 750;
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .saved-jobs-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .saved-job-pill {
+      min-height: 30px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 650;
+      border-radius: 20px;
+      border: 1px solid #c0d8e8;
+      background: #fff;
+      color: var(--navy);
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgb(18 51 72 / 4%);
+      transition: all .15s ease;
+    }
+    .saved-job-pill:hover {
+      background: #143c58;
+      color: #fff;
+      border-color: #143c58;
+      box-shadow: 0 2px 6px rgb(20 60 88 / 20%);
+    }
+    .full-page-form {
+      gap: 18px;
+    }
+    .full-page-form label {
+      font-size: 13px;
+    }
+    .full-page-form input {
+      min-height: 44px;
+      font-size: 14px;
+    }
+    .switch-job-topline-btn {
+      min-height: 34px;
+      padding: 6px 12px;
+      font-size: 12px;
+      border-color: #bcd4e4;
+      background: #f3f8fb;
+      color: var(--navy);
+    }
+    .switch-job-topline-btn:hover {
+      background: #e6f1f7;
+      border-color: #9ebfd4;
+    }
+
+    /* Change Password & User Management Dialogs */
+    dialog.change-password-dialog {
+      width: min(540px, calc(100% - 32px)) !important;
+      max-width: 540px !important;
+      overflow: visible;
+    }
+    .dialog-form-content {
+      display: grid;
+      gap: 14px;
+      padding: 20px 24px;
+    }
+    .dialog-intro-note {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .dialog-form-content label {
+      display: grid;
+      gap: 5px;
+      color: #4f6777;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .dialog-form-content input {
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--input);
+      font-size: 14px;
+      color: var(--ink);
+    }
+    dialog.user-management-dialog {
+      width: min(980px, calc(100% - 32px)) !important;
+      max-width: 980px !important;
+      max-height: min(90vh, 840px) !important;
+    }
+    .user-management-content {
+      display: grid;
+      gap: 22px;
+      padding: 24px 28px;
+      overflow-y: auto;
+    }
+    .admin-create-box {
+      padding: 20px 24px;
+      border: 1px solid #d8e5ee;
+      border-radius: 14px;
+      background: #f7fafc;
+    }
+    .admin-box-title {
+      margin: 0;
+      color: var(--navy);
+      font-size: 16px;
+      font-weight: 750;
+    }
+    .admin-box-subtitle {
+      margin: 6px 0 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .create-user-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.3fr) minmax(180px, 1.3fr) minmax(160px, 1fr) auto;
+      gap: 16px;
+      align-items: flex-end;
+    }
+    @media (max-width: 840px) {
+      .create-user-form {
+        grid-template-columns: 1fr;
+      }
+    }
+    .create-user-form label {
+      display: grid;
+      gap: 6px;
+      color: #506779;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .create-user-form input,
+    .create-user-form select {
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 14px;
+      color: var(--ink);
+    }
+    .create-user-actions button {
+      min-height: 42px;
+      padding: 0 20px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .admin-users-list-box {
+      display: grid;
+      gap: 12px;
+    }
+    .users-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .user-note-small {
+      font-size: 12px;
+      color: #728999;
+    }
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .users-table th {
+      white-space: nowrap !important;
+      padding: 12px 18px;
+      color: #506779;
+      background: #f2f7fa;
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+    }
+    .users-table td {
+      padding: 12px 18px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid #edf2f5;
+    }
+    .users-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+      font-size: 13px;
+    }
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .role-badge.admin {
+      background: #e5f1f8;
+      color: var(--navy);
+    }
+    .role-badge.estimator {
+      background: #edf5ea;
+      color: var(--green);
+    }
+    .pwd-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .pwd-status.temp {
+      color: #b87414;
+    }
+    .pwd-status.active {
+      color: var(--green);
+    }
+    .user-row-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-table-action {
+      min-height: 28px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 650;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-table-action.reset-btn {
+      border: 1px solid #bad3e3;
+      color: var(--navy);
+      background: #f2f7fb;
+    }
+    .btn-table-action.reset-btn:hover {
+      background: #e1eff7;
+      border-color: #8bb3cb;
+    }
+    .btn-table-action.delete-btn {
+      border: 1px solid #f0c3be;
+      color: var(--red);
+      background: #fff6f5;
+    }
+    .btn-table-action.delete-btn:hover {
+      background: #fee7e4;
+      border-color: #e5978f;
+    }
+    .admin-users-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 5px 12px;
+      border: 1px solid #9dc0d6;
+      border-radius: 7px;
+      color: #124467;
+      background: #eef6fa;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 1px 2px rgb(18 51 72 / 4%);
+      transition: all .15s ease;
+    }
+    .admin-users-btn:hover {
+      background: #ddeff8;
+      border-color: #71a6c5;
+    }
+
+    .panel { margin-bottom: 18px; overflow: hidden; }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff 0%, #fbfdfe 100%);
+    }
+    .panel-heading h2 { margin: 0; color: var(--navy); font-size: 16px; font-weight: 720; letter-spacing: -.01em; }
+    .takeoff-heading-layout { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; }
+    .takeoff-heading-layout .job-title-line { flex: 1 1 auto; min-width: 0; }
+    .takeoff-heading-layout .stats { flex: 0 1 320px; }
+    .segment-manager-button { flex: 0 0 auto; }
+    .panel-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 9px; border-bottom: 1px solid #edf1f4; text-align: left; }
+    th {
+      color: #506779;
+      background: #f2f7fa;
+      font-size: 9px;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    td { font-size: 12px; vertical-align: middle; }
+    tbody tr { transition: background-color .14s ease; }
+    tbody tr:hover { background: #f7fafc; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .takeoff-table { width: 100%; min-width: 1400px; table-layout: fixed; }
+    .takeoff-table th, .takeoff-table td {
+      padding: 8px 4px;
+      overflow: hidden;
+      text-overflow: clip;
+      text-align: center;
+    }
+    .takeoff-table thead th { color: #4b667b; background: #f1f6f9; }
+    .takeoff-table thead tr.column-filter-row th { padding: 4px; background: #f8fbfc; }
+    .filter-toggle-button { display: inline-flex; align-items: center; justify-content: center; width: 26px; min-width: 26px; min-height: 26px; padding: 4px; border: 0; background: transparent; color: #4b667b; box-shadow: none; vertical-align: middle; }
+    .filter-toggle-button:hover, .filter-toggle-button[aria-expanded="true"] { background: #dceaf2; color: var(--navy); }
+    .filter-toggle-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .takeoff-table .column-filter {
+      height: 28px;
+      padding: 3px 5px;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .clear-filters-button { min-height: 28px; padding: 3px 5px; font-size: 10px; }
+    .filter-status { padding: 6px 12px; color: var(--muted); font-size: 11px; }
+    .takeoff-table tbody td { height: 52px; }
+    .takeoff-table input, .takeoff-table select {
+      width: 100%;
+      min-width: 0;
+      height: 34px;
+      padding: 5px 6px;
+      border: 1px solid #e1e5e5;
+      border-radius: 7px;
+      color: var(--ink);
+      background: var(--input);
+      box-shadow: inset 0 1px 2px rgb(24 50 71 / 3%);
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .takeoff-table input:hover, .takeoff-table select:hover { border-color: #c5d3db; }
+    .takeoff-table input:focus, .takeoff-table select:focus { border-color: #5c9bbd; background: #fff; box-shadow: 0 0 0 3px rgb(38 116 156 / 12%); }
+    .takeoff-table input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 2px rgb(190 57 57 / 12%); }
+    .takeoff-table .description-cell input { text-align: left; font-weight: 650; }
+    .function-guide { width: auto; margin: 0 12px 10px; border-collapse: collapse; color: var(--muted); font-size: 11px; }
+    .function-guide th, .function-guide td { padding: 2px 8px; border: 0; text-align: left; }
+    .function-guide th { color: var(--navy); font-weight: 700; }
+    .takeoff-table .numeric { text-align: center; font-variant-numeric: tabular-nums; }
+    .takeoff-table td.computed { color: #395668; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .takeoff-table td.weight { color: var(--navy); font-size: 13px; font-weight: 750; }
+    .takeoff-table .calculated-value {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-width: 0;
+      height: 34px;
+      padding: 5px 6px;
+      overflow: hidden;
+      border: 1px solid #e1e5e5;
+      border-radius: 7px;
+      background: var(--input);
+      box-shadow: inset 0 1px 2px rgb(24 50 71 / 3%);
+      font-variant-numeric: tabular-nums;
+    }
+    .line-cell { width: 42px; min-width: 42px; text-align: center; }
+    .line-content { display: flex; align-items: center; justify-content: center; }
+    .line-number { font-variant-numeric: tabular-nums; }
+    .copy-line {
+      min-width: 28px;
+      min-height: 28px;
+      padding: 3px 7px;
+      border-color: transparent;
+      background: transparent;
+      box-shadow: none;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .copy-line:hover { border-color: var(--line); background: var(--soft-blue); }
+    .takeoff-table tbody tr.active-row { background: #eaf3f8; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .remove-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      width: 30px;
+      min-height: 30px;
+      padding: 5px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      color: #778894;
+      background: transparent;
+    }
+    .remove-row:hover { border-color: #f2d0cc; color: var(--red); background: #fff0ee; }
+    .remove-row svg { width: 15px; height: 15px; }
+    .action-cell { width: 42px; min-width: 42px; padding: 4px 2px !important; text-align: center; }
+    .summary-dialog {
+      width: min(560px, calc(100% - 32px));
+      max-width: none;
+      max-height: min(80vh, 620px);
+      padding: 0;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--ink);
+      background: var(--paper);
+      box-shadow: 0 24px 80px rgb(12 35 51 / 28%);
+    }
+    .hook-dialog { width: min(760px, calc(100% - 32px)); }
+    .hook-table { min-width: 580px; }
+    .hook-table th, .hook-table td { text-align: center !important; }
+    .hook-reference-note { margin: 0; padding: 12px 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .close-confirm-dialog {
+      width: min(460px, calc(100% - 32px));
+      overflow: visible;
+    }
+    .hook-class-warning-dialog {
+      width: min(480px, calc(100% - 32px));
+      overflow: visible;
+    }
+    .close-confirm-message { margin: 20px 18px; color: var(--muted); line-height: 1.6; }
+    .close-confirm-dialog .summary-dialog-footer { flex-wrap: wrap; gap: 9px; }
+    .hook-class-warning-message { margin: 20px 18px; color: var(--muted); line-height: 1.6; }
+    .summary-dialog::backdrop { background: rgb(14 32 46 / 52%); backdrop-filter: blur(3px); }
+    .summary-dialog .panel-heading { position: sticky; top: 0; z-index: 1; }
+    .summary-dialog .table-scroll { overflow: auto; }
+    .summary-dialog .summary-table { min-width: 100%; }
+    .summary-dialog-footer { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--line); background: #fcfdfe; }
+    .summary-table th, .summary-table td { padding: 11px 16px; }
+    .summary-table td:not(:first-child), .summary-table th:not(:first-child) {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-empty { color: #8796a0; }
+    .segment-manager-content { display: grid; gap: 16px; padding: 18px; }
+    .segment-manager-form { display: flex; gap: 8px; }
+    .segment-manager-form input {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--input);
+    }
+    .segment-list { display: grid; gap: 8px; max-height: 240px; overflow: auto; }
+    .segment-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 10px 12px;
+      color: var(--ink);
+      text-align: left;
+    }
+    .segment-item[aria-pressed="true"] { border-color: #8ab6ce; background: var(--soft-blue); }
+    .segment-item small { color: var(--muted); }
+    .segment-manager-empty { margin: 0; color: var(--muted); font-size: 13px; }
+    .subsegment-manager { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .subsegment-manager h3 { margin: 0; color: var(--navy); font-size: 14px; }
+    .segment-preview { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .segment-preview-heading { margin: 0; padding: 8px 10px; border-bottom: 2px solid #8ddfe6; color: var(--muted); background: #f3fbfc; font-size: 10px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .segment-preview-list { display: grid; gap: 2px; max-height: 240px; padding: 8px 0; overflow: auto; }
+    .segment-preview-name { margin: 0; padding: 5px 10px; color: #183247; font-size: 13px; }
+    .segment-preview-name.segment { border-bottom: 1px solid #8ddfe6; font-weight: 750; text-transform: uppercase; }
+    .segment-preview-name.subsegment { padding-left: 28px; font-size: 12px; }
+    .find-replace-content { display: grid; gap: 12px; padding: 18px; }
+    .find-replace-content label { display: grid; gap: 5px; color: #506779; font-size: 12px; font-weight: 700; }
+    .find-replace-content input, .find-replace-content select {
+      width: 100%;
+      min-height: 40px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--ink);
+      background: var(--input);
+    }
+    .find-replace-feedback { min-height: 18px; margin: 0; color: var(--muted); font-size: 12px; }
+
+    details.notes {
+      padding: 14px 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    details.notes summary { color: var(--navy); cursor: pointer; font-weight: 700; }
+    details.notes ul { margin: 10px 0 0; padding-left: 20px; }
+    .footer-note { margin: 20px 2px 0; color: #788995; font-size: 11px; line-height: 1.5; }
+
+    @media (max-width: 760px) {
+      .page { padding-top: 20px; }
+      .hero { align-items: flex-start; flex-direction: column; gap: 17px; }
+      .toolbar { width: 100%; }
+      .toolbar button { flex: 1; }
+      .topline { align-items: flex-start; flex-wrap: wrap; }
+      .topline-actions { align-items: flex-end; flex-direction: column-reverse; }
+      .topline-tools { justify-content: flex-end; }
+      .takeoff-heading-layout { align-items: stretch; flex-direction: column; gap: 12px; }
+      .takeoff-heading-layout .stats { flex: 0 1 auto; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .job-title-line { flex-wrap: wrap; }
+      .segment-manager-button { align-self: flex-start; }
+      .segment-manager-form { flex-direction: column; }
+      .stat-card { min-height: 0; padding: 0; }
+      .project-form { grid-template-columns: 1fr; }
+      .project-form .wide { grid-column: auto; }
+      .setup-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; min-height: 0; padding-top: 20px; }
+      .setup-intro { margin: 0 auto; }
+      .setup-intro h1 { font-size: clamp(34px, 9vw, 46px); }
+      .setup-topbar { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .user-session-bar { width: 100%; justify-content: space-between; }
+      .full-page-card-header { flex-direction: column; align-items: flex-start; }
+      .saved-jobs-quick-section { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (min-width: 761px) and (max-width: 1100px) {
+      .setup-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; min-height: 0; padding-top: 20px; }
+      .setup-intro { width: 100%; max-width: 680px; margin: 0 auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      .setup-intro::before, .setup-intro::after { animation: none; }
+    }
+
+    @media print {
+      @page { size: landscape; margin: 10mm; }
+      :root { --canvas: #fff; }
+      body { background: #fff; font-size: 10px; }
+      .page { max-width: none; padding: 0; }
+      .topline, .hero, .stats, .footer-note { display: none !important; }
+      .toolbar, .remove-row, details.notes { display: none !important; }
+      .summary-dialog { display: none !important; }
+      .stats { gap: 8px; margin-bottom: 10px; }
+      .stat-card { padding: 10px; box-shadow: none; }
+      .stat-value { font-size: 19px; }
+      .panel { overflow: visible; box-shadow: none; break-inside: auto; page-break-inside: auto; }
+      .panel-heading { padding: 9px 12px; }
+      .table-scroll { overflow: visible; }
+      .takeoff-table { min-width: 0; table-layout: auto; }
+      .takeoff-table thead { display: table-header-group; }
+      .filter-toggle-button, .takeoff-table .column-filter-row, .filter-status { display: none !important; }
+      .takeoff-table tr { break-inside: avoid; page-break-inside: avoid; }
+      th, td { padding: 6px 4px; font-size: 10px; }
+      .takeoff-table input, .takeoff-table select {
+        height: auto;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        appearance: none;
+        color: #111;
+        background: transparent;
+        font-size: 10px;
+      }
+      .summary-table th, .summary-table td { padding: 5px 7px; }
+      .footer-note { font-size: 9px; }
+    }
+  </style>
+</head>
+<body class="setup-screen">
+  <main class="page">
+    <!-- 1. LOGIN SCREEN (Split Layout: Left Intro, Right Login Details) -->
+    <section id="login-screen" class="setup-layout" aria-label="Rebar takeoff user login">
+      <div class="setup-intro">
+        <span class="badge-tag">Rebar Estimating Suite</span>
+        <h1>Rebar takeoff</h1>
+        <p class="subtitle">Enter Qty directly, or leave it blank to calculate from Span and Spcg. Both Span and Spcg are in feet. Mult adjusts the resulting bar count.</p>
+        <div class="setup-features">
+          <div class="feature-item">
+            <span class="feature-icon">✓</span>
+            <span>Automatic imperial bar calculations, lap splice &amp; cut length formulas</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">✓</span>
+            <span>Standard ACI hook dimensions &amp; bend class specifications</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">✓</span>
+            <span>Segment breakdown, dynamic CSV export &amp; print reports</span>
+          </div>
+        </div>
+      </div>
+      <div class="project-setup login-card">
+        <div class="login-header">
+          <div class="login-avatar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div>
+            <h2>Estimator Login</h2>
+            <p>Sign in with your credentials to manage or create takeoff jobs.</p>
+          </div>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>Username or Email
+            <input id="login-username" name="username" required type="text" autocomplete="username" placeholder="e.g. estimator or admin" autofocus>
+          </label>
+          <label>Password
+            <div class="password-wrapper">
+              <input id="login-password" name="password" required type="password" autocomplete="current-password" placeholder="••••••••">
+              <button type="button" id="toggle-password-visibility" class="toggle-password-btn" title="Show or hide password" aria-label="Show password">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </label>
+          <div class="login-options">
+            <label class="remember-label">
+              <input type="checkbox" id="login-remember" checked>
+              <span>Remember me</span>
+            </label>
+            <button type="button" id="forgot-password-btn" class="forgot-password-link">Forgot password?</button>
+          </div>
+          <div class="project-form-actions wide">
+            <button id="login-submit" type="submit" class="primary full-width-btn">Sign In to Continue</button>
+          </div>
+        </form>
+        <p id="login-feedback" class="project-feedback" role="alert" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- 2. JOB SETUP SCREEN (Full Page Layout: Job ID, Name, Client, Address) -->
+    <section id="project-setup" class="full-page-setup" aria-label="Rebar takeoff job setup" hidden>
+      <div class="setup-topbar">
+        <div class="brand-line">
+          <span class="brand-title">Rebar Takeoff</span>
+          <span class="brand-divider">/</span>
+          <span class="brand-sub">Job Management</span>
+        </div>
+        <div class="user-session-bar">
+          <span class="user-greeting">
+            <span class="user-indicator-dot"></span>
+            Logged in as <strong id="logged-user-name">Estimator</strong>
+          </span>
+          <button type="button" id="manage-users-button" class="admin-users-btn" title="Admin: Manage user accounts and passwords" hidden>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Manage Users
+          </button>
+          <button type="button" id="logout-button" class="logout-btn" title="Sign out to login screen">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      <div class="full-page-card">
+        <div class="full-page-card-header">
+          <div class="card-title-group">
+            <h2 id="setup-heading">Create or Open a Job</h2>
+            <p>Enter the job details below to initialize your estimation worksheet. Saved jobs can also be reopened.</p>
+          </div>
+        </div>
+
+        <form id="project-form" class="project-form">
+          <label>Job ID
+            <span class="job-id-picker">
+              <input name="id" required maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="saved-job-dropdown" aria-expanded="false" placeholder="e.g. JOB-2026-001">
+              <button type="button" id="job-picker-toggle" class="job-picker-toggle" aria-label="Show saved jobs" aria-controls="saved-job-dropdown" aria-expanded="false" title="Show saved jobs list">▾</button>
+              <span id="saved-job-dropdown" class="saved-job-dropdown" role="listbox" hidden></span>
+            </span>
+          </label>
+          <label>Project name
+            <input name="name" required maxlength="120" autocomplete="off" placeholder="e.g. North Commercial Complex" data-job-detail disabled>
+          </label>
+          <label>Client
+            <input name="client" maxlength="120" autocomplete="organization" placeholder="e.g. Apex Builders Inc. (optional)" data-job-detail disabled>
+          </label>
+          <label>Address 1
+            <input name="address1" maxlength="120" placeholder="e.g. 104 Industrial Pkwy (optional)" data-job-detail disabled>
+          </label>
+          <label>Address 2
+            <input name="address2" maxlength="120" placeholder="Suite, building, etc. (optional)" data-job-detail disabled>
+          </label>
+          <label>Address 3
+            <input name="address3" maxlength="120" placeholder="Additional address details (optional)" data-job-detail disabled>
+          </label>
+          <label>City
+            <input name="city" maxlength="120" placeholder="e.g. Dallas (optional)" data-job-detail disabled>
+          </label>
+          <label>State
+            <input name="state" maxlength="80" placeholder="e.g. TX (optional)" data-job-detail disabled>
+          </label>
+          <label>ZIP code
+            <input name="zip" maxlength="20" autocomplete="postal-code" placeholder="e.g. 75201 (optional)" data-job-detail disabled>
+          </label>
+          <div class="project-form-actions">
+            <button id="project-submit" type="submit" class="primary full-width-btn" data-job-detail disabled>Create job and start takeoff</button>
+          </div>
+        </form>
+        <p id="project-feedback" class="project-feedback" role="alert" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- 3. TAKEOFF WORKSHEET APP -->
+    <div id="takeoff-app" hidden>
+    <div class="topline">
+      <span>Estimating worksheet <span aria-hidden="true">/</span> Imperial units</span>
+      <div class="topline-actions">
+        <div class="topline-tools" role="group" aria-label="Takeoff report actions">
+          <button id="switch-job-topline" type="button" class="switch-job-topline-btn" title="Save and return to Job Setup">Switch Job</button>
+          <button id="toggle-summary" type="button" aria-haspopup="dialog" aria-controls="summary-dialog">Summary</button>
+          <button id="show-hook-values" type="button" aria-haspopup="dialog" aria-controls="hook-values-dialog" hidden>Hook values</button>
+          <button id="export-csv" type="button">Export CSV</button>
+          <button id="print-page" type="button" class="primary">Print takeoff</button>
+        </div>
+        <span class="user-greeting" style="font-size:12px; margin: 0 4px;"><span class="user-indicator-dot"></span> <strong id="app-user-name">Estimator</strong></span>
+        <span id="save-status" class="saved-indicator" data-state="saved" role="status" aria-live="polite">Saved in this browser</span>
+      </div>
+    </div>
+
+    <header class="hero">
+      <div class="toolbar" aria-label="Takeoff actions">
+        <div class="row-tools" role="group" aria-label="Line actions">
+          <div class="history-tools">
+            <button id="undo-action" type="button" class="icon-action" aria-label="Undo" title="Undo" disabled>
+              <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-1"/></svg>
+            </button>
+            <button id="redo-action" type="button" class="icon-action" aria-label="Redo" title="Redo" disabled>
+              <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h1"/></svg>
+            </button>
+          </div>
+          <button id="insert-line" type="button" class="icon-action" title="Insert an empty line above the selected line" aria-label="Insert line">
+            <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          </button>
+          <button id="copy-line" type="button" class="icon-action" title="Copy the selected line" aria-label="Copy line">
+            <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+          </button>
+          <button id="paste-line" type="button" class="icon-action" title="Paste the copied line at the end of the takeoff" aria-label="Paste line" disabled>
+            <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M12 11v7m-3-3 3 3 3-3"/></svg>
+          </button>
+        </div>
+        <button id="save-job" type="button" class="icon-action" title="Save job" aria-label="Save">
+          <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 3h12l4 4v14H3V3z"/><path d="M7 3v6h10V3M7 21v-8h10v8"/></svg>
+        </button>
+        <button id="close-job" type="button" class="icon-action" title="Close job" aria-label="Close">
+          <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+        <button id="edit-project-topline" type="button" class="toolbar-text-action" title="Edit the current project's details">Edit Project</button>
+        <button id="show-find-replace" type="button" class="toolbar-text-action" aria-haspopup="dialog" aria-controls="find-replace-dialog">Find &amp; Replace</button>
+        <button id="view-segments" type="button" class="toolbar-text-action" aria-haspopup="dialog" aria-controls="segment-dialog">View Segment/Subsegment</button>
+      </div>
+    </header>
+
+    <section class="panel" aria-labelledby="takeoff-heading">
+      <div class="panel-heading">
+        <div id="takeoff-heading" class="takeoff-heading-layout">
+          <div class="job-title-line">
+            <span id="job-id-display" class="job-id"></span>
+            <h2 id="job-name-display" class="job-name"></h2>
+          </div>
+          <section class="stats" aria-label="Project totals">
+            <article class="stat-card">
+              <span class="stat-label">Estimated total weight</span>
+              <span class="stat-value"><span id="total-weight">0.0</span><span class="stat-unit">lb</span></span>
+            </article>
+            <article class="stat-card">
+              <span class="stat-label">Line entries</span>
+              <span id="line-count" class="stat-value">0</span>
+            </article>
+          </section>
+        </div>
+      </div>
+      <table class="function-guide" aria-label="Function entry guide">
+        <thead>
+          <tr><th scope="col">Function</th><th scope="col">description</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">B</th><td>Entry text or empty line</td></tr>
+          <tr><th scope="row">L</th><td>Entry rebar details</td></tr>
+        </tbody>
+      </table>
+      <div class="table-scroll">
+        <table class="takeoff-table">
+          <thead>
+            <tr>
+              <th scope="col">Line</th>
+              <th scope="col">Function</th>
+              <th scope="col">Grd</th>
+              <th scope="col">Qty</th>
+              <th scope="col">Span</th>
+              <th scope="col">Spcg</th>
+              <th scope="col">Mult</th>
+              <th scope="col">Size</th>
+              <th scope="col">Cls</th>
+              <th scope="col">L1</th>
+              <th scope="col">L2</th>
+              <th scope="col">L3</th>
+              <th scope="col">L4</th>
+              <th scope="col">L5</th>
+              <th scope="col">Segment</th>
+              <th scope="col">Subsegment</th>
+              <th scope="col">Total length (ft)</th>
+              <th scope="col">Lbs</th>
+              <th class="action-cell" scope="col">
+                <button id="toggle-column-filters" class="filter-toggle-button" type="button" aria-label="Show column filters" title="Show column filters" aria-expanded="false" aria-controls="column-filter-row">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16l-6.5 7.5v5l-3 1.5v-6.5z"></path></svg>
+                </button>
+              </th>
+            </tr>
+            <tr id="column-filter-row" class="column-filter-row" aria-label="Filter rows by column" hidden>
+              <th><input class="column-filter" type="search" data-column-filter="line" aria-label="Filter Line" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="function" aria-label="Filter Function" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="grd" aria-label="Filter Grd" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="qty" aria-label="Filter Qty" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="span" aria-label="Filter Span" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="spcg" aria-label="Filter Spcg" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="mult" aria-label="Filter Mult" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="size" aria-label="Filter Size" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="cls" aria-label="Filter Cls" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="L1" aria-label="Filter L1" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="L2" aria-label="Filter L2" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="L3" aria-label="Filter L3" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="L4" aria-label="Filter L4" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="L5" aria-label="Filter L5" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="segment" aria-label="Filter Segment" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="subsegment" aria-label="Filter Subsegment" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="totalLength" aria-label="Filter Total length" placeholder="Filter"></th>
+              <th><input class="column-filter" type="search" data-column-filter="lbs" aria-label="Filter Lbs" placeholder="Filter"></th>
+              <th><button id="clear-column-filters" class="clear-filters-button" type="button">Clear</button></th>
+            </tr>
+          </thead>
+          <tbody id="takeoff-rows"></tbody>
+        </table>
+      </div>
+      <div id="filter-status" class="filter-status" role="status" aria-live="polite">Showing all lines</div>
+      <datalist id="grade-options">
+        <option value="60"></option>
+        <option value="75"></option>
+        <option value="80"></option>
+        <option value="100"></option>
+      </datalist>
+      <datalist id="function-options">
+        <option value="B"></option>
+        <option value="L"></option>
+      </datalist>
+      <datalist id="size-options">
+        <option value="3"></option>
+        <option value="4"></option>
+        <option value="5"></option>
+        <option value="6"></option>
+        <option value="7"></option>
+        <option value="8"></option>
+        <option value="9"></option>
+        <option value="10"></option>
+        <option value="11"></option>
+        <option value="14"></option>
+        <option value="18"></option>
+      </datalist>
+      <datalist id="class-options">
+        <option value="S"></option>
+        <option value="H"></option>
+        <option value="L"></option>
+      </datalist>
+    </section>
+
+    <dialog id="summary-dialog" class="summary-dialog" aria-labelledby="summary-heading" aria-describedby="summary-description">
+      <div class="panel-heading">
+        <div>
+          <h2 id="summary-heading">By bar size</h2>
+          <p id="summary-description">Estimated weight by bar size.</p>
+        </div>
+        <button id="close-summary" type="button" class="icon-button" aria-label="Close summary">Close</button>
+      </div>
+      <div class="table-scroll">
+        <table class="summary-table">
+          <thead><tr><th scope="col">Bar size</th><th scope="col">Weight (lb)</th></tr></thead>
+          <tbody id="size-summary"></tbody>
+        </table>
+      </div>
+      <div class="summary-dialog-footer">
+        <button id="dismiss-summary" type="button" class="primary">Done</button>
+      </div>
+    </dialog>
+
+    <dialog id="hook-values-dialog" class="summary-dialog hook-dialog" aria-labelledby="hook-values-heading" aria-describedby="hook-values-description">
+      <div class="panel-heading">
+        <div>
+          <h2 id="hook-values-heading">Recommended end hook dimensions</h2>
+          <p id="hook-values-description">Reference values by reinforcing bar size.</p>
+        </div>
+        <button id="close-hook-values" type="button" class="icon-button" aria-label="Close hook values">Close</button>
+      </div>
+      <div class="table-scroll">
+        <table class="summary-table hook-table">
+          <thead>
+            <tr>
+              <th scope="col" rowspan="2">Bar size</th>
+              <th scope="colgroup" colspan="1">180° hooks</th>
+              <th scope="col" rowspan="2">90° hooks<br>A or G</th>
+            </tr>
+            <tr>
+              <th scope="col">A or G</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">#3</th><td>0′-5″</td><td>0′-6″</td></tr>
+            <tr><th scope="row">#4</th><td>0′-6″</td><td>0′-8″</td></tr>
+            <tr><th scope="row">#5</th><td>0′-7″</td><td>0′-10″</td></tr>
+            <tr><th scope="row">#6</th><td>0′-8″</td><td>1′-0″</td></tr>
+            <tr><th scope="row">#7</th><td>0′-10″</td><td>1′-2″</td></tr>
+            <tr><th scope="row">#8</th><td>0′-11″</td><td>1′-4″</td></tr>
+            <tr><th scope="row">#9</th><td>1′-3″</td><td>1′-7″</td></tr>
+            <tr><th scope="row">#10</th><td>1′-5″</td><td>1′-10″</td></tr>
+            <tr><th scope="row">#11</th><td>1′-7″</td><td>2′-0″</td></tr>
+            <tr><th scope="row">#14</th><td>2′-3″</td><td>2′-7″</td></tr>
+            <tr><th scope="row">#18</th><td>3′-0″</td><td>3′-5″</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hook-reference-note">Reference dimensions transcribed from the supplied chart. Confirm applicable code edition and project requirements before use.</p>
+      <div class="summary-dialog-footer">
+        <button id="dismiss-hook-values" type="button" class="primary">Done</button>
+      </div>
+    </dialog>
+
+    <dialog id="segment-dialog" class="summary-dialog" aria-labelledby="segment-heading" aria-describedby="segment-description">
+      <div class="panel-heading">
+        <div>
+          <h2 id="segment-heading">Segments and Subsegments</h2>
+          <p id="segment-description">Create a segment, then select it to add subsegments.</p>
+        </div>
+        <button id="close-segments" type="button" class="icon-button" aria-label="Close segments">Close</button>
+      </div>
+      <div class="segment-manager-content">
+        <form id="create-segment-form" class="segment-manager-form">
+          <input id="new-segment-name" type="text" maxlength="80" aria-label="New segment name" placeholder="Enter segment name" required>
+          <button type="submit" class="primary">Create segment</button>
+        </form>
+        <div id="segment-list" class="segment-list" aria-label="Segments"></div>
+        <section class="segment-preview" aria-label="Segment and subsegment preview">
+          <h3 class="segment-preview-heading">Preview</h3>
+          <div id="segment-preview-list" class="segment-preview-list"></div>
+        </section>
+        <form id="create-subsegment-form" class="segment-manager-form subsegment-manager" hidden>
+          <h3 id="selected-segment-heading"></h3>
+          <input id="new-subsegment-name" type="text" maxlength="80" aria-label="New subsegment name" placeholder="Enter subsegment name" required>
+          <button type="submit" class="primary">Create subsegment</button>
+          <div id="subsegment-list" class="segment-list" aria-label="Subsegments"></div>
+        </form>
+      </div>
+      <div class="summary-dialog-footer">
+        <button id="dismiss-segments" type="button" class="primary">Done</button>
+      </div>
+    </dialog>
+
+    <dialog id="find-replace-dialog" class="summary-dialog" aria-labelledby="find-replace-heading" aria-describedby="find-replace-description">
+      <div class="panel-heading">
+        <div>
+          <h2 id="find-replace-heading">Find and replace</h2>
+          <p id="find-replace-description">Find text in one column and replace it across all takeoff lines.</p>
+        </div>
+        <button id="close-find-replace" type="button" class="icon-button" aria-label="Close find and replace">Close</button>
+      </div>
+      <form id="find-replace-form" class="find-replace-content">
+        <label>Column
+          <select id="find-replace-column" required></select>
+        </label>
+        <label>Find
+          <input id="find-replace-find" type="text" maxlength="80" required>
+        </label>
+        <label>Replace with
+          <input id="find-replace-replacement" type="text" maxlength="80">
+        </label>
+        <p id="find-replace-feedback" class="find-replace-feedback" role="status" aria-live="polite"></p>
+        <div class="summary-dialog-footer">
+          <button id="dismiss-find-replace" type="button">Cancel</button>
+          <button type="submit" class="primary">Replace all</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="close-confirm-dialog" class="summary-dialog close-confirm-dialog" aria-labelledby="close-confirm-heading" aria-describedby="close-confirm-message">
+      <div class="panel-heading">
+        <h2 id="close-confirm-heading">Unsaved changes</h2>
+      </div>
+      <p id="close-confirm-message" class="close-confirm-message">Would you like to save your changes before closing?</p>
+      <div class="summary-dialog-footer">
+        <button id="cancel-close" type="button">Cancel</button>
+        <button id="discard-close" type="button" class="danger">Close without saving</button>
+        <button id="save-and-close" type="button" class="primary">Save and close</button>
+      </div>
+    </dialog>
+
+    <dialog id="hook-class-warning-dialog" class="summary-dialog hook-class-warning-dialog" aria-labelledby="hook-class-warning-heading" aria-describedby="hook-class-warning-message">
+      <div class="panel-heading">
+        <h2 id="hook-class-warning-heading">Change hook class?</h2>
+      </div>
+      <p id="hook-class-warning-message" class="hook-class-warning-message"></p>
+      <div class="summary-dialog-footer">
+        <button id="cancel-hook-class-change" type="button">No</button>
+        <button id="confirm-hook-class-change" type="button" class="primary">Yes</button>
+      </div>
+    </dialog>
+
+    <p class="footer-note">Your entries are saved in this browser on this device. Download a CSV backup or print a copy for your records.</p>
+    </div>
+
+    <!-- Dialog for Setting New Password (First-Time Login / Temp Password) -->
+    <dialog id="change-password-dialog" class="summary-dialog change-password-dialog" aria-labelledby="change-password-heading">
+      <div class="panel-heading">
+        <h2 id="change-password-heading">Set New Password</h2>
+      </div>
+      <form id="change-password-form" class="dialog-form-content">
+        <p class="dialog-intro-note">You are signed in with a temporary password (<strong id="temp-user-name">admin</strong>). Please set a new personal password to secure your account and continue.</p>
+        <label>New Password
+          <div class="password-wrapper">
+            <input id="new-password-input" name="newPassword" required type="password" minlength="6" placeholder="Enter new password (min 6 characters)">
+            <button type="button" id="toggle-new-password-visibility" class="toggle-password-btn" title="Show or hide password" aria-label="Show password">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </label>
+        <label>Confirm New Password
+          <input id="confirm-password-input" name="confirmPassword" required type="password" minlength="6" placeholder="Re-enter new password">
+        </label>
+        <p id="change-password-feedback" class="project-feedback" role="alert" aria-live="polite"></p>
+        <div class="summary-dialog-footer" style="padding: 12px 0 0; background: transparent; border-top: none;">
+          <button id="cancel-change-password-btn" type="button">Cancel / Sign Out</button>
+          <button id="submit-change-password-btn" type="submit" class="primary">Save Password &amp; Continue</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Dialog for Admin User Management (Create & Manage Users) -->
+    <dialog id="user-management-dialog" class="summary-dialog user-management-dialog" aria-labelledby="user-management-heading">
+      <div class="panel-heading">
+        <h2 id="user-management-heading">User Account Management</h2>
+        <button type="button" id="close-user-management-x" class="icon-action" title="Close dialog" aria-label="Close">
+          <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div class="user-management-content">
+        <div class="admin-create-box">
+          <h3 class="admin-box-title">Create New User</h3>
+          <p class="admin-box-subtitle">Create a login account for an estimator or admin. The user will be required to set their new password upon their first login.</p>
+          <form id="create-user-form" class="create-user-form">
+            <label>Username
+              <input id="new-user-username" name="username" required maxlength="40" placeholder="e.g. estimator_1" autocomplete="off">
+            </label>
+            <label>Temporary Password
+              <input id="new-user-password" name="password" required maxlength="50" placeholder="Temporary password" value="Password123">
+            </label>
+            <label>Role
+              <select id="new-user-role" name="role">
+                <option value="estimator">Estimator</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </label>
+            <div class="create-user-actions">
+              <button type="submit" class="primary">+ Create User</button>
+            </div>
+          </form>
+          <p id="create-user-feedback" class="project-feedback" role="alert" aria-live="polite"></p>
+        </div>
+
+        <div class="admin-users-list-box">
+          <div class="users-list-header">
+            <h3 class="admin-box-title">Existing Accounts (<span id="user-count-display">0</span>)</h3>
+            <span class="user-note-small">Temporary passwords must be changed by user upon login</span>
+          </div>
+          <div class="table-scroll">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Password Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="summary-dialog-footer">
+        <button id="close-user-management-btn" type="button" class="primary">Done</button>
+      </div>
+    </dialog>
+
+    <!-- Dialog for Forgot Password -->
+    <dialog id="forgot-password-dialog" class="summary-dialog forgot-password-dialog" aria-labelledby="forgot-password-heading">
+      <div class="panel-heading">
+        <h2 id="forgot-password-heading">Forgot Password</h2>
+        <button type="button" id="close-forgot-password-x" class="icon-action" title="Close dialog" aria-label="Close">
+          <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div class="dialog-form-content">
+        <p class="dialog-intro-note">Enter your username below to check your account status or recover access.</p>
+        <label>Username
+          <input id="forgot-username-input" type="text" placeholder="e.g. admin or estimator_1" autocomplete="off">
+        </label>
+        <button type="button" id="forgot-check-btn" class="primary full-width-btn" style="margin-top: 4px;">Check Account</button>
+        <div id="forgot-password-result" class="forgot-result-box" hidden></div>
+      </div>
+      <div class="summary-dialog-footer">
+        <button id="close-forgot-password-btn" type="button">Back to Sign In</button>
+      </div>
+    </dialog>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "rebar-estimation-takeoff-v2";
+      const LEGACY_STORAGE_KEY = "rebar-estimation-takeoff-v1";
+      const PROJECTS_STORAGE_KEY = "rebar-estimation-projects-v1";
+      const ACTIVE_PROJECT_STORAGE_KEY = "rebar-estimation-active-project-v1";
+      const AUTH_STORAGE_KEY = "rebar-estimation-auth-user-v1";
+      const USERS_STORAGE_KEY = "rebar-estimation-users-v1";
+      const BAR_WEIGHTS = {
+        "#3": 0.376, "#4": 0.668, "#5": 1.043, "#6": 1.502,
+        "#7": 2.044, "#8": 2.670, "#9": 3.400, "#10": 4.303,
+        "#11": 5.313, "#14": 7.650, "#18": 13.600
+      };
+      const HOOK_90_LENGTH_INCHES = {
+        "#3": 6, "#4": 8, "#5": 10, "#6": 12, "#7": 14, "#8": 16,
+        "#9": 19, "#10": 22, "#11": 24, "#14": 31, "#18": 41
+      };
+      const HOOK_180_LENGTH_INCHES = {
+        "#3": 5, "#4": 6, "#5": 7, "#6": 8, "#7": 10, "#8": 11,
+        "#9": 15, "#10": 17, "#11": 19, "#14": 27, "#18": 36
+      };
+      const COLUMNS = [
+        ["line", "Line"], ["function", "Function"], ["grd", "Grd"], ["qty", "Qty"], ["span", "Span"], ["spcg", "Spcg"],
+        ["mult", "Mult"], ["size", "Size"], ["cls", "Cls"],
+        ["L1", "L1"], ["L2", "L2"], ["L3", "L3"], ["L4", "L4"], ["L5", "L5"],
+        ["segment", "Segment"], ["subsegment", "Subsegment"],
+        ["totalLength", "Total length"], ["lbs", "Lbs"], ["action", "Actions"]
+      ];
+      const NUMERIC_FIELDS = new Set(["qty", "span", "spcg", "mult", "L1", "L2", "L3", "L4", "L5"]);
+      const REPLACEABLE_COLUMNS = COLUMNS.filter(([field]) =>
+        !["line", "totalLength", "lbs", "action"].includes(field)
+      );
+      const rowsElement = document.getElementById("takeoff-rows");
+      const summaryDialog = document.getElementById("summary-dialog");
+      const hookValuesDialog = document.getElementById("hook-values-dialog");
+      const segmentDialog = document.getElementById("segment-dialog");
+      const findReplaceDialog = document.getElementById("find-replace-dialog");
+      const closeConfirmDialog = document.getElementById("close-confirm-dialog");
+      const hookClassWarningDialog = document.getElementById("hook-class-warning-dialog");
+      let hookClassInputToReview = null;
+      let pendingHookClassConfirmation = null;
+      let projectSegments = [];
+      let selectedSegmentId = null;
+      const summaryButton = document.getElementById("toggle-summary");
+      const findReplaceColumnSelect = document.getElementById("find-replace-column");
+      for (const [field, label] of REPLACEABLE_COLUMNS) {
+        const option = document.createElement("option");
+        option.value = field;
+        option.textContent = label;
+        findReplaceColumnSelect.append(option);
+      }
+      for (const filter of document.querySelectorAll("[data-column-filter]")) {
+        filter.addEventListener("input", applyColumnFilters);
+      }
+      const filterToggleButton = document.getElementById("toggle-column-filters");
+      const columnFilterRow = document.getElementById("column-filter-row");
+      filterToggleButton.addEventListener("click", () => {
+        const isExpanded = filterToggleButton.getAttribute("aria-expanded") === "true";
+        filterToggleButton.setAttribute("aria-expanded", String(!isExpanded));
+        filterToggleButton.setAttribute("aria-label", isExpanded ? "Show column filters" : "Hide column filters");
+        filterToggleButton.title = isExpanded ? "Show column filters" : "Hide column filters";
+        columnFilterRow.hidden = isExpanded;
+        if (!isExpanded) columnFilterRow.querySelector("[data-column-filter]")?.focus();
+      });
+      document.getElementById("clear-column-filters").addEventListener("click", () => {
+        clearColumnFilters();
+      });
+      document.getElementById("find-replace-form").addEventListener("submit", event => {
+        event.preventDefault();
+        replaceColumnValues();
+      });
+      summaryButton.addEventListener("click", () => {
+        summaryDialog.showModal();
+        document.getElementById("close-summary").focus();
+      });
+      document.getElementById("close-summary").addEventListener("click", () => summaryDialog.close());
+      document.getElementById("dismiss-summary").addEventListener("click", () => summaryDialog.close());
+      document.getElementById("show-hook-values").addEventListener("click", () => {
+        const user = findUserByUsername(getAuthenticatedUser());
+        if (!user || user.role !== "admin") return;
+        hookValuesDialog.showModal();
+        document.getElementById("close-hook-values").focus();
+      });
+      document.getElementById("close-hook-values").addEventListener("click", () => hookValuesDialog.close());
+      document.getElementById("dismiss-hook-values").addEventListener("click", () => hookValuesDialog.close());
+      document.getElementById("view-segments").addEventListener("click", () => {
+        renderSegmentManager();
+        segmentDialog.showModal();
+        document.getElementById("new-segment-name").focus();
+      });
+      document.getElementById("close-segments").addEventListener("click", () => segmentDialog.close());
+      document.getElementById("dismiss-segments").addEventListener("click", () => segmentDialog.close());
+      document.getElementById("show-find-replace").addEventListener("click", () => {
+        document.getElementById("find-replace-feedback").textContent = "";
+        findReplaceDialog.showModal();
+        document.getElementById("find-replace-find").focus();
+      });
+      document.getElementById("close-find-replace").addEventListener("click", () => findReplaceDialog.close());
+      document.getElementById("dismiss-find-replace").addEventListener("click", () => findReplaceDialog.close());
+      summaryDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        summaryDialog.close();
+      });
+      hookValuesDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        hookValuesDialog.close();
+      });
+      segmentDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        segmentDialog.close();
+      });
+      findReplaceDialog.addEventListener("cancel", event => {
+        event.preventDefault();
+        findReplaceDialog.close();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && summaryDialog.open) {
+          event.preventDefault();
+          summaryDialog.close();
+        }
+      }, true);
+      summaryDialog.addEventListener("click", event => {
+        if (event.target === summaryDialog) summaryDialog.close();
+      });
+      hookValuesDialog.addEventListener("click", event => {
+        if (event.target === hookValuesDialog) hookValuesDialog.close();
+      });
+      segmentDialog.addEventListener("click", event => {
+        if (event.target === segmentDialog) segmentDialog.close();
+      });
+      findReplaceDialog.addEventListener("click", event => {
+        if (event.target === findReplaceDialog) findReplaceDialog.close();
+      });
+      const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+      const weightFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      let rowSequence = 0;
+      let projects = [];
+      let activeProject = null;
+      let copiedRow = null;
+      let selectedRow = null;
+      let committedRows = [];
+      let savedRowsSnapshot = "[]";
+      let undoHistory = [];
+      let redoHistory = [];
+      let historySnapshot = "[]";
+      let historyCaptureTimer;
+
+      function updateHistoryButtons() {
+        document.getElementById("undo-action").disabled = undoHistory.length === 0;
+        document.getElementById("redo-action").disabled = redoHistory.length === 0;
+      }
+
+      function recordHistoryChange() {
+        const currentSnapshot = JSON.stringify(serializeRows());
+        if (currentSnapshot === historySnapshot) return;
+        if (!historyCaptureTimer) {
+          undoHistory.push(historySnapshot);
+          if (undoHistory.length > 100) undoHistory.shift();
+          redoHistory = [];
+          historyCaptureTimer = setTimeout(() => {
+            historyCaptureTimer = undefined;
+          }, 500);
+        }
+        historySnapshot = currentSnapshot;
+        updateHistoryButtons();
+      }
+
+      function renderHistoryRows(snapshot) {
+        const rows = JSON.parse(snapshot);
+        rowsElement.replaceChildren();
+        rowSequence = 0;
+        for (const row of rows) addRow(row);
+        if (!rowsElement.children.length) addRow();
+        setSelectedRow(rowsElement.firstElementChild);
+        recalculate();
+        historySnapshot = JSON.stringify(serializeRows());
+        updateHistoryButtons();
+      }
+
+      function restoreHistorySnapshot(snapshot, destinationHistory) {
+        clearTimeout(historyCaptureTimer);
+        historyCaptureTimer = undefined;
+        const currentSnapshot = JSON.stringify(serializeRows());
+        destinationHistory.push(currentSnapshot);
+        renderHistoryRows(snapshot);
+        historySnapshot = snapshot;
+        updateSaveStatus();
+        updateHistoryButtons();
+        return true;
+      }
+
+      function undoTakeoff() {
+        const snapshot = undoHistory.pop();
+        if (snapshot === undefined) return;
+        if (restoreHistorySnapshot(snapshot, redoHistory)) return;
+        undoHistory.push(snapshot);
+        updateHistoryButtons();
+      }
+
+      function redoTakeoff() {
+        const snapshot = redoHistory.pop();
+        if (snapshot === undefined) return;
+        if (restoreHistorySnapshot(snapshot, undoHistory)) return;
+        redoHistory.push(snapshot);
+        updateHistoryButtons();
+      }
+
+      function setStatus(message, state = "saved") {
+        const status = document.getElementById("save-status");
+        status.textContent = message;
+        status.dataset.state = state;
+      }
+
+      function makeInput(name, value, label, type = "text") {
+        const input = document.createElement("input");
+        input.type = type;
+        input.setAttribute("aria-label", label);
+        if (type === "number") {
+          input.min = "0";
+          input.step = "any";
+          input.inputMode = "decimal";
+        } else {
+          input.maxLength = 80;
+        }
+        input.value = value ?? "";
+        input.dataset.field = name;
+        return input;
+      }
+
+      function getProjectSnapshot(rows = serializeRows()) {
+        return JSON.stringify({ rows, segments: projectSegments });
+      }
+
+      function normalizeProjectSegments(segments) {
+        if (segments === undefined) return [];
+        if (!Array.isArray(segments)) throw new Error("Saved segments have an unexpected format.");
+        return segments.map(segment => {
+          if (!segment || typeof segment.id !== "string" || typeof segment.name !== "string"
+            || !Array.isArray(segment.subsegments)) {
+            throw new Error("A saved segment is invalid.");
+          }
+          return {
+            id: segment.id,
+            name: segment.name,
+            subsegments: segment.subsegments.map(subsegment => {
+              if (!subsegment || typeof subsegment.id !== "string" || typeof subsegment.name !== "string") {
+                throw new Error("A saved subsegment is invalid.");
+              }
+              return { id: subsegment.id, name: subsegment.name };
+            })
+          };
+        });
+      }
+
+      function createSegmentSelect(field, value, options) {
+        const select = document.createElement("select");
+        select.dataset.field = field;
+        select.setAttribute("aria-label", field === "segment" ? "Segment" : "Subsegment");
+        const emptyOption = document.createElement("option");
+        emptyOption.value = "";
+        emptyOption.textContent = field === "segment" ? "Select segment" : "Select subsegment";
+        select.append(emptyOption);
+        for (const optionValue of options) {
+          const option = document.createElement("option");
+          option.value = optionValue;
+          option.textContent = optionValue;
+          select.append(option);
+        }
+        if (value && !options.includes(value)) {
+          const legacyOption = document.createElement("option");
+          legacyOption.value = value;
+          legacyOption.textContent = value;
+          select.append(legacyOption);
+        }
+        select.value = value || "";
+        return select;
+      }
+
+      function getSegmentByName(name) {
+        return projectSegments.find(segment => segment.name === name);
+      }
+
+      function refreshSubsegmentSelect(row, value = "") {
+        const select = row.querySelector('[data-field="subsegment"]');
+        if (!select) return;
+        const segment = getSegmentByName(row.querySelector('[data-field="segment"]')?.value);
+        const options = segment ? segment.subsegments.map(subsegment => subsegment.name) : [];
+        select.replaceWith(createSegmentSelect("subsegment", value, options));
+      }
+
+      function refreshSegmentSelects() {
+        for (const row of rowsElement.querySelectorAll("tr")) {
+          const segmentSelect = row.querySelector('[data-field="segment"]');
+          const subsegmentSelect = row.querySelector('[data-field="subsegment"]');
+          const segmentValue = segmentSelect.value;
+          const subsegmentValue = subsegmentSelect.value;
+          segmentSelect.replaceWith(createSegmentSelect(
+            "segment",
+            segmentValue,
+            projectSegments.map(segment => segment.name)
+          ));
+          refreshSubsegmentSelect(row, subsegmentValue);
+        }
+      }
+
+      function renderSegmentManager() {
+        const list = document.getElementById("segment-list");
+        const preview = document.getElementById("segment-preview-list");
+        const subsegmentForm = document.getElementById("create-subsegment-form");
+        list.replaceChildren();
+        preview.replaceChildren();
+        if (!projectSegments.length) {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "segment-manager-empty";
+          emptyMessage.textContent = "No segments created yet.";
+          list.append(emptyMessage);
+          const previewMessage = emptyMessage.cloneNode(true);
+          previewMessage.classList.add("segment-preview-name");
+          previewMessage.textContent = "Create a segment to see the preview.";
+          preview.append(previewMessage);
+        }
+        for (const segment of projectSegments) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "segment-item";
+          button.setAttribute("aria-pressed", String(segment.id === selectedSegmentId));
+          const name = document.createElement("span");
+          name.textContent = segment.name;
+          const count = document.createElement("small");
+          count.textContent = `${segment.subsegments.length} subsegments`;
+          button.append(name, count);
+          button.addEventListener("click", () => {
+            selectedSegmentId = segment.id;
+            renderSegmentManager();
+            document.getElementById("new-subsegment-name").focus();
+          });
+          list.append(button);
+
+          const segmentHeading = document.createElement("p");
+          segmentHeading.className = "segment-preview-name segment";
+          segmentHeading.textContent = segment.name;
+          preview.append(segmentHeading);
+          for (const subsegment of segment.subsegments) {
+            const subsegmentName = document.createElement("p");
+            subsegmentName.className = "segment-preview-name subsegment";
+            subsegmentName.textContent = subsegment.name;
+            preview.append(subsegmentName);
+          }
+        }
+        const selectedSegment = projectSegments.find(segment => segment.id === selectedSegmentId);
+        subsegmentForm.hidden = !selectedSegment;
+        document.getElementById("subsegment-list").replaceChildren();
+        if (selectedSegment) {
+          document.getElementById("selected-segment-heading").textContent = selectedSegment.name;
+          for (const subsegment of selectedSegment.subsegments) {
+            const item = document.createElement("p");
+            item.className = "segment-manager-empty";
+            item.textContent = subsegment.name;
+            document.getElementById("subsegment-list").append(item);
+          }
+          if (!selectedSegment.subsegments.length) {
+            const emptyMessage = document.createElement("p");
+            emptyMessage.className = "segment-manager-empty";
+            emptyMessage.textContent = "No subsegments created for this segment yet.";
+            document.getElementById("subsegment-list").append(emptyMessage);
+          }
+        }
+      }
+
+      document.getElementById("create-segment-form").addEventListener("submit", event => {
+        event.preventDefault();
+        const input = document.getElementById("new-segment-name");
+        const name = input.value.trim();
+        if (!name) return;
+        if (projectSegments.some(segment => segment.name.toLowerCase() === name.toLowerCase())) {
+          input.setCustomValidity("A segment with this name already exists.");
+          input.reportValidity();
+          input.setCustomValidity("");
+          return;
+        }
+        const segment = {
+          id: `segment-${Date.now()}-${projectSegments.length + 1}`,
+          name,
+          subsegments: []
+        };
+        projectSegments.push(segment);
+        selectedSegmentId = segment.id;
+        input.value = "";
+        refreshSegmentSelects();
+        renderSegmentManager();
+        updateSaveStatus();
+        document.getElementById("new-subsegment-name").focus();
+      });
+
+      document.getElementById("create-subsegment-form").addEventListener("submit", event => {
+        event.preventDefault();
+        const input = document.getElementById("new-subsegment-name");
+        const name = input.value.trim();
+        const segment = projectSegments.find(item => item.id === selectedSegmentId);
+        if (!segment || !name) return;
+        if (segment.subsegments.some(subsegment => subsegment.name.toLowerCase() === name.toLowerCase())) {
+          input.setCustomValidity("A subsegment with this name already exists in this segment.");
+          input.reportValidity();
+          input.setCustomValidity("");
+          return;
+        }
+        segment.subsegments.push({ id: `${segment.id}-subsegment-${segment.subsegments.length + 1}`, name });
+        input.value = "";
+        refreshSegmentSelects();
+        renderSegmentManager();
+        updateSaveStatus();
+        document.getElementById("new-subsegment-name").focus();
+      });
+
+      function normalizeSavedValue(field, value) {
+        if (typeof value !== "string") return value;
+        if (field === "size" && /^#\d+$/.test(value.trim())) return value.trim().slice(1);
+        if (field === "cls") {
+          const classAliases = {
+            "s-straight": "S",
+            "h-heavy": "H",
+            "l-light": "L"
+          };
+          return classAliases[value.trim().toLowerCase()] || value;
+        }
+        return value;
+      }
+
+      function addRow(data = {}) {
+        const rowId = `takeoff-row-${++rowSequence}`;
+        const tr = document.createElement("tr");
+        tr.id = rowId;
+
+        for (const [field, label] of COLUMNS) {
+          const td = document.createElement("td");
+          td.dataset.column = field;
+          if (field === "line") {
+            td.className = "line-cell";
+            const copyButton = document.createElement("button");
+            copyButton.type = "button";
+            copyButton.className = "copy-line line-number";
+            copyButton.dataset.output = "line";
+            copyButton.textContent = String(rowsElement.children.length + 1);
+            copyButton.title = "Select this line";
+            copyButton.setAttribute("aria-label", `Select line ${copyButton.textContent}`);
+            copyButton.addEventListener("click", () => setSelectedRow(tr));
+            td.append(copyButton);
+          } else if (field === "action") {
+            td.className = "action-cell";
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "remove-row";
+            removeButton.setAttribute("aria-label", "Remove takeoff row");
+            removeButton.title = "Delete row";
+            removeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>';
+            removeButton.addEventListener("click", () => {
+              tr.remove();
+              if (selectedRow === tr) setSelectedRow(rowsElement.firstElementChild);
+              if (!rowsElement.children.length) setSelectedRow(addRow());
+              recalculateAndMarkUnsaved();
+            });
+            td.append(removeButton);
+          } else if (field === "totalLength" || field === "lbs") {
+            td.className = field === "lbs" ? "computed weight" : "computed";
+            const output = document.createElement("span");
+            output.className = "calculated-value";
+            output.dataset.output = field;
+            td.append(output);
+            td.setAttribute("aria-label", field === "lbs" ? "Calculated weight in pounds" : "Total length in feet");
+          } else if (field === "qty") {
+            const input = makeInput(field, data[field], label, "number");
+            input.classList.add("numeric");
+            input.placeholder = "Auto";
+            td.append(input);
+          } else if (field === "segment") {
+            td.append(createSegmentSelect(
+              field,
+              data[field] || "",
+              projectSegments.map(segment => segment.name)
+            ));
+          } else if (field === "subsegment") {
+            const segment = getSegmentByName(tr.querySelector('[data-field="segment"]')?.value);
+            td.append(createSegmentSelect(
+              field,
+              data[field] || "",
+              segment ? segment.subsegments.map(subsegment => subsegment.name) : []
+            ));
+          } else if (field === "size" || field === "grd" || field === "cls") {
+            const listId = field === "size" ? "size-options"
+              : field === "grd" ? "grade-options"
+              : "class-options";
+            const value = normalizeSavedValue(field, data[field]);
+            const input = makeInput(field, value, label);
+            input.setAttribute("list", listId);
+            input.classList.add(`cell-${field}`);
+            td.append(input);
+          } else {
+            const accessibleLabel = field === "span" ? "Span in feet"
+              : field === "spcg" ? "Spacing in feet"
+              : ["L1", "L2", "L3", "L4", "L5"].includes(field) ? `${field} length in feet`
+              : field === "mult" ? "Multiplier"
+              : label;
+            const value = normalizeSavedValue(field, data[field] ?? (field === "mult" ? "1" : ""));
+            const isLength = ["L1", "L2", "L3", "L4", "L5"].includes(field);
+            const input = makeInput(field, value, accessibleLabel, NUMERIC_FIELDS.has(field) && !isLength ? "number" : "text");
+            if (field === "function") input.setAttribute("list", "function-options");
+            if (isLength) {
+              input.title = "Enter a length in feet, S90, S180, or a multiplier such as 2S90";
+              input.setAttribute("aria-description", "Enter a length in feet, S90 for a standard 90 degree hook, S180 for a standard 180 degree hook, or a multiplier such as 2S90 or 2S180.");
+            }
+            input.classList.add(NUMERIC_FIELDS.has(field) ? "numeric" : `cell-${field}`);
+            td.append(input);
+          }
+          tr.append(td);
+        }
+
+        const descriptionCell = document.createElement("td");
+        descriptionCell.className = "description-cell";
+        descriptionCell.dataset.descriptionCell = "";
+        descriptionCell.colSpan = COLUMNS.length - 3;
+        descriptionCell.hidden = true;
+        const descriptionInput = document.createElement("input");
+        descriptionInput.type = "text";
+        descriptionInput.dataset.description = "";
+        descriptionInput.setAttribute("aria-label", "Description line");
+        descriptionInput.placeholder = "Enter description";
+        descriptionInput.value = data.description || "";
+        descriptionCell.append(descriptionInput);
+        tr.insertBefore(descriptionCell, tr.children[2]);
+        updateDescriptionRow(tr);
+
+        tr.addEventListener("focusin", () => setSelectedRow(tr));
+        tr.addEventListener("click", () => setSelectedRow(tr));
+        tr.addEventListener("keydown", event => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            let nextRow = tr.nextElementSibling;
+            const rowIndex = Array.from(rowsElement.children).indexOf(tr);
+            const savedRow = committedRows[rowIndex] || makeBlankRow();
+            for (const input of tr.querySelectorAll("[data-field]")) {
+              input.value = savedRow[input.dataset.field] ?? (input.dataset.field === "mult" ? "1" : "");
+            }
+            tr.querySelector("[data-description]").value = savedRow.description || "";
+            updateDescriptionRow(tr);
+            recalculate();
+            if (!nextRow) nextRow = addRow();
+            recordHistoryChange();
+            updateSaveStatus();
+            nextRow.querySelector("[data-field]")?.focus();
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            const lengthError = getLengthInputError();
+            if (lengthError) {
+              setStatus(lengthError, "warning");
+              return;
+            }
+            const hookClassWarning = getHookClassWarning(tr);
+            if (hookClassWarning) {
+              showHookClassWarning(hookClassWarning, () => commitRowAndAdvance(tr));
+              return;
+            }
+            commitRowAndAdvance(tr);
+          }
+        });
+        tr.addEventListener("input", event => {
+          if (event.target.matches('[data-field="function"]')) {
+            const isDescription = event.target.value.trim().toUpperCase() === "B";
+            if (isDescription) event.target.value = "B";
+            updateDescriptionRow(tr);
+            if (isDescription) tr.querySelector("[data-description]").focus();
+          }
+          normalizeClassInput(event.target);
+          normalizeLengthInput(event.target);
+          recalculateAndMarkUnsaved();
+        });
+        tr.addEventListener("change", event => {
+          normalizeClassInput(event.target);
+          normalizeLengthInput(event.target);
+          if (event.target.matches('[data-field="segment"]')) {
+            refreshSubsegmentSelect(tr);
+          }
+          recalculateAndMarkUnsaved();
+        });
+        rowsElement.append(tr);
+        return tr;
+      }
+
+      function updateDescriptionRow(tr) {
+        const isDescription = tr.querySelector('[data-field="function"]')?.value.trim().toUpperCase() === "B";
+        tr.classList.toggle("description-row", isDescription);
+        for (const cell of tr.querySelectorAll("[data-column]")) {
+          cell.hidden = isDescription && !["line", "function", "action"].includes(cell.dataset.column);
+        }
+        tr.querySelector("[data-description-cell]").hidden = !isDescription;
+      }
+
+      function setSelectedRow(tr) {
+        selectedRow = tr;
+        for (const row of rowsElement.querySelectorAll("tr")) {
+          row.classList.toggle("active-row", row === selectedRow);
+        }
+      }
+
+      function commitRowAndAdvance(tr) {
+        let nextRow = tr.nextElementSibling;
+        const rowIndex = Array.from(rowsElement.children).indexOf(tr);
+        const hasEntry = tr.classList.contains("description-row")
+          ? true
+          : Array.from(tr.querySelectorAll("[data-field]"))
+            .some(input => input.dataset.field !== "mult" && input.value.trim());
+        recalculate();
+        if (!nextRow && hasEntry) nextRow = addRow();
+        committedRows[rowIndex] = serializeRow(tr);
+        recordHistoryChange();
+        updateSaveStatus();
+        nextRow?.querySelector("[data-field]")?.focus();
+      }
+
+      function insertRowAboveTarget(data) {
+        const target = selectedRow?.isConnected ? selectedRow : rowsElement.firstElementChild;
+        const insertedRow = addRow(data);
+        if (target) rowsElement.insertBefore(insertedRow, target);
+        recalculate();
+        recordHistoryChange();
+        updateSaveStatus();
+        setSelectedRow(insertedRow);
+        insertedRow.querySelector("[data-field]")?.focus();
+        return true;
+      }
+
+      function appendCopiedRow(data) {
+        const savedRows = serializeRows();
+        const lastIndex = savedRows.length - 1;
+        const lastRow = savedRows[lastIndex];
+        const lastRowHasEntry = lastRow && Object.entries(lastRow)
+          .some(([field, value]) => field !== "mult" && value.trim());
+        const replaceBlankLastRow = lastRow && !lastRowHasEntry;
+
+        let pastedRow;
+        if (replaceBlankLastRow) {
+          pastedRow = rowsElement.lastElementChild;
+          for (const input of pastedRow.querySelectorAll("[data-field]")) {
+            input.value = data[input.dataset.field] ?? (input.dataset.field === "mult" ? "1" : "");
+          }
+          pastedRow.querySelector("[data-description]").value = data.description || "";
+          updateDescriptionRow(pastedRow);
+        } else {
+          pastedRow = addRow(data);
+        }
+        recalculate();
+        recordHistoryChange();
+        updateSaveStatus();
+        setSelectedRow(pastedRow);
+        pastedRow.querySelector("[data-field]")?.focus();
+        return true;
+      }
+
+      function getNumber(row, field) {
+        const value = Number(row.querySelector(`[data-field="${field}"]`)?.value);
+        return Number.isFinite(value) && value > 0 ? value : 0;
+      }
+
+      function normalizeLengthInput(input) {
+        if (!input.matches('[data-field="L1"], [data-field="L2"], [data-field="L3"], [data-field="L4"], [data-field="L5"]')) return;
+        const value = input.value.trim().toUpperCase().replace(/\s+/g, "");
+        const hookMatch = value.match(/^(\d+(?:\.\d+)?)?(S90|S180)$/);
+        if (hookMatch && Number(hookMatch[1] || "1") > 0) input.value = value;
+      }
+
+      function normalizeClassInput(input) {
+        if (input.matches('[data-field="cls"]')) input.value = input.value.toUpperCase();
+      }
+
+      function parseHookLength(value) {
+        const match = value.trim().toUpperCase().replace(/\s+/g, "").match(/^(\d+(?:\.\d+)?)?(S90|S180)$/);
+        if (!match) return null;
+        const multiplier = Number(match[1] || "1");
+        if (!Number.isFinite(multiplier) || multiplier <= 0) return null;
+        return { multiplier, code: match[2] };
+      }
+
+      function getLengthValue(row, field) {
+        const value = row.querySelector(`[data-field="${field}"]`)?.value.trim() || "";
+        const hookLength = parseHookLength(value);
+        if (hookLength) {
+          const enteredSize = row.querySelector('[data-field="size"]').value.trim();
+          const size = /^\d+$/.test(enteredSize) ? `#${enteredSize}` : enteredSize;
+          const hookLengths = hookLength.code === "S180" ? HOOK_180_LENGTH_INCHES : HOOK_90_LENGTH_INCHES;
+          return ((hookLengths[size] || 0) * hookLength.multiplier) / 12;
+        }
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
+      }
+
+      function getLengthInputError() {
+        for (const [index, row] of Array.from(rowsElement.querySelectorAll("tr")).entries()) {
+          const functionInput = row.querySelector('[data-field="function"]');
+          const value = functionInput.value.trim();
+          const isValid = !value || ["B", "L"].includes(value.toUpperCase());
+          functionInput.setCustomValidity(isValid ? "" : "Function must be B or L.");
+          functionInput.setAttribute("aria-invalid", String(!isValid));
+          if (!isValid) return `Function in line ${index + 1} must be B or L.`;
+          if (value) functionInput.value = value.toUpperCase();
+        }
+        for (const input of rowsElement.querySelectorAll('[data-field="L1"], [data-field="L2"], [data-field="L3"], [data-field="L4"], [data-field="L5"]')) {
+          if (input.closest("tr").classList.contains("description-row")) continue;
+          const value = input.value.trim();
+          if (!value || parseHookLength(value)) {
+            if (parseHookLength(value)) {
+              const row = input.closest("tr");
+              const enteredSize = row.querySelector('[data-field="size"]').value.trim();
+              const size = /^\d+$/.test(enteredSize) ? `#${enteredSize}` : enteredSize;
+              const hookLengths = parseHookLength(value).code === "S180" ? HOOK_180_LENGTH_INCHES : HOOK_90_LENGTH_INCHES;
+              if (hookLengths[size]) continue;
+              return `Enter a supported bar size before using ${value.toUpperCase().replace(/\s+/g, "")} in ${input.dataset.field}.`;
+            }
+            continue;
+          }
+          if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)) {
+            return `${input.dataset.field} must be a length in feet or a hook value such as S90, 2S90, S180, or 2S180.`;
+          }
+        }
+        return "";
+      }
+
+      function getHookClassWarning(targetRow = null) {
+        for (const [index, row] of Array.from(rowsElement.querySelectorAll("tr")).entries()) {
+          if (targetRow && row !== targetRow) continue;
+          if (row.classList.contains("description-row")) continue;
+          const hookCode = ["L1", "L2", "L3", "L4", "L5"]
+            .map(field => parseHookLength(row.querySelector(`[data-field="${field}"]`).value))
+            .find(value => value !== null);
+          if (!hookCode) continue;
+
+          const enteredSize = row.querySelector('[data-field="size"]').value.trim();
+          const size = /^\d+$/.test(enteredSize) ? `#${enteredSize}` : enteredSize;
+          const expectedClass = size === "#3" ? "L" : "H";
+          const clsInput = row.querySelector('[data-field="cls"]');
+          const enteredClass = clsInput.value.trim().toUpperCase();
+          if (enteredClass !== expectedClass) {
+            const bend = expectedClass === "L" ? "Light bend" : "Heavy bend";
+            return {
+              clsInput,
+              expectedClass,
+              message: `Line ${index + 1} uses ${hookCode.multiplier === 1 ? "" : `${hookCode.multiplier}×`}${hookCode.code} with bar size ${size} and Cls ${enteredClass || "blank"}. Change Cls to ${bend} (${expectedClass}) and continue?`
+            };
+          }
+        }
+        return null;
+      }
+
+      function showHookClassWarning(warning, onConfirm) {
+        hookClassInputToReview = warning.clsInput;
+        pendingHookClassConfirmation = { ...warning, onConfirm };
+        document.getElementById("hook-class-warning-message").textContent = warning.message;
+        hookClassWarningDialog.showModal();
+        document.getElementById("confirm-hook-class-change").focus();
+      }
+
+      function formatNumber(value, digits = 2) {
+        if (!Number.isFinite(value) || value <= 0) return "";
+        return new Intl.NumberFormat("en-US", { maximumFractionDigits: digits }).format(value);
+      }
+
+      function getRowResults(tr) {
+        if (tr.classList.contains("description-row")) {
+          return { qty: 0, calculatedQty: 0, totalQty: 0, cutLength: 0, totalLength: 0, unitWeight: 0, lbs: 0, size: "" };
+        }
+        const span = getNumber(tr, "span");
+        const spacing = getNumber(tr, "spcg");
+        const manualQty = getNumber(tr, "qty");
+        const calculatedQty = span && spacing ? Math.ceil(span / spacing) + 1 : 0;
+        const qty = manualQty || calculatedQty;
+        const mult = getNumber(tr, "mult") || 1;
+        const totalQty = qty * mult;
+        const cutLength = ["L1", "L2", "L3", "L4", "L5"]
+          .reduce((total, field) => total + getLengthValue(tr, field), 0);
+        const totalLength = totalQty * cutLength;
+        const enteredSize = tr.querySelector('[data-field="size"]').value.trim();
+        const size = /^\d+$/.test(enteredSize) ? `#${enteredSize}` : enteredSize;
+        const unitWeight = BAR_WEIGHTS[size] || 0;
+        const lbs = totalLength * unitWeight;
+        return {
+          qty, calculatedQty, totalQty, cutLength, totalLength, unitWeight, lbs, size
+        };
+      }
+
+      function getColumnFilterValue(tr, field, index, result) {
+        if (field === "line") return String(index + 1);
+        if (field === "function" && tr.classList.contains("description-row")) {
+          return `${tr.querySelector('[data-field="function"]').value} ${tr.querySelector("[data-description]").value}`;
+        }
+        if (field === "qty") {
+          return tr.querySelector('[data-field="qty"]').value || formatNumber(result.calculatedQty, 0);
+        }
+        if (field === "totalLength") return tr.querySelector('[data-output="totalLength"]').textContent;
+        if (field === "lbs") return tr.querySelector('[data-output="lbs"]').textContent;
+        return tr.querySelector(`[data-field="${field}"]`)?.value || "";
+      }
+
+      function applyColumnFilters() {
+        const filters = Array.from(document.querySelectorAll("[data-column-filter]"))
+          .map(filter => [filter.dataset.columnFilter, filter.value.trim().toLocaleLowerCase()])
+          .filter(([, value]) => value);
+        const rows = Array.from(rowsElement.querySelectorAll("tr"));
+        let visibleCount = 0;
+        for (const [index, tr] of rows.entries()) {
+          const result = getRowResults(tr);
+          const matches = filters.every(([field, value]) =>
+            getColumnFilterValue(tr, field, index, result).toLocaleLowerCase().includes(value)
+          );
+          tr.hidden = !matches;
+          if (matches) visibleCount++;
+        }
+        document.getElementById("filter-status").textContent = filters.length
+          ? `Showing ${visibleCount} of ${rows.length} lines`
+          : "Showing all lines";
+      }
+
+      function clearColumnFilters() {
+        for (const filter of document.querySelectorAll("[data-column-filter]")) filter.value = "";
+        applyColumnFilters();
+      }
+
+      function replaceColumnValues() {
+        const field = findReplaceColumnSelect.value;
+        const label = REPLACEABLE_COLUMNS.find(([column]) => column === field)?.[1];
+        const findValue = document.getElementById("find-replace-find").value;
+        const replacement = document.getElementById("find-replace-replacement").value;
+        if (!label || !findValue) return;
+        const matcher = new RegExp(findValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+        let replacementCount = 0;
+        let changedSegment = false;
+
+        for (const row of rowsElement.querySelectorAll("tr")) {
+          const control = row.querySelector(`[data-field="${field}"]`);
+          if (!control) continue;
+          const currentValue = control.value;
+          const matches = currentValue.match(matcher);
+          if (!matches) continue;
+          replacementCount += matches.length;
+          const currentSubsegment = row.querySelector('[data-field="subsegment"]').value;
+          const newValue = currentValue.replace(matcher, replacement);
+          if (control instanceof HTMLSelectElement
+            && !Array.from(control.options).some(option => option.value === newValue)) {
+            const option = document.createElement("option");
+            option.value = newValue;
+            option.textContent = newValue;
+            control.append(option);
+          }
+          control.value = newValue;
+          normalizeClassInput(control);
+          normalizeLengthInput(control);
+          if (field === "segment") {
+            refreshSubsegmentSelect(row, currentSubsegment);
+            changedSegment = true;
+          }
+        }
+
+        const feedback = document.getElementById("find-replace-feedback");
+        if (!replacementCount) {
+          feedback.textContent = `No matches found in ${label}.`;
+          return;
+        }
+        recordHistoryChange();
+        recalculate();
+        updateSaveStatus();
+        feedback.textContent = `Replaced ${replacementCount} occurrence${replacementCount === 1 ? "" : "s"} in ${label}${changedSegment ? ". Subsegment selections were retained where possible." : "."}`;
+      }
+
+      function isRowFilled(tr) {
+        if (tr.classList.contains("description-row")) return false;
+        const hasSize = Boolean(tr.querySelector('[data-field="size"]').value.trim());
+        const hasQuantity = getNumber(tr, "qty") > 0
+          || (getNumber(tr, "span") > 0 && getNumber(tr, "spcg") > 0);
+        const hasLength = ["L1", "L2", "L3", "L4", "L5"].some(field => getLengthValue(tr, field) > 0);
+        return hasSize && hasQuantity && hasLength;
+      }
+
+      function updateSummary(totals, bySize) {
+        document.getElementById("total-weight").textContent = weightFormat.format(totals.weight);
+
+        const sizeBody = document.getElementById("size-summary");
+        sizeBody.replaceChildren();
+        for (const size of Object.keys(BAR_WEIGHTS)) {
+          const values = bySize.get(size);
+          if (!values) continue;
+          const tr = document.createElement("tr");
+          for (const text of [size, weightFormat.format(values.weight)]) {
+            const td = document.createElement("td");
+            td.textContent = text;
+            tr.append(td);
+          }
+          sizeBody.append(tr);
+        }
+        if (!sizeBody.children.length) addEmptySummaryRow(sizeBody, 4, "No takeoff data yet");
+      }
+
+      function addEmptySummaryRow(tbody, columns, message) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = columns;
+        td.className = "summary-empty";
+        td.textContent = message;
+        tr.append(td);
+        tbody.append(tr);
+      }
+
+      function recalculate() {
+        const totals = { weight: 0, length: 0, quantity: 0 };
+        const bySize = new Map();
+        let lineCount = 0;
+
+        for (const [index, tr] of Array.from(rowsElement.querySelectorAll("tr")).entries()) {
+          const result = getRowResults(tr);
+          const lineNumber = tr.querySelector('[data-output="line"]');
+          lineNumber.textContent = String(index + 1);
+          lineNumber.setAttribute("aria-label", `Select line ${index + 1}`);
+          const qtyInput = tr.querySelector('[data-field="qty"]');
+          qtyInput.placeholder = result.calculatedQty ? formatNumber(result.calculatedQty, 0) : "Auto";
+          tr.querySelector('[data-output="totalLength"]').textContent = formatNumber(result.cutLength);
+          tr.querySelector('[data-output="lbs"]').textContent = formatNumber(result.lbs);
+
+          totals.quantity += result.totalQty;
+          totals.length += result.totalLength;
+          totals.weight += result.lbs;
+          const hasEntry = tr.classList.contains("description-row")
+            ? true
+            : Array.from(tr.querySelectorAll("[data-field]"))
+              .some(input => input.dataset.field !== "mult" && input.value.trim());
+          if (hasEntry) lineCount++;
+
+          if (result.size && result.totalQty) {
+            if (!bySize.has(result.size)) bySize.set(result.size, { weight: 0 });
+            const size = bySize.get(result.size);
+            size.weight += result.lbs;
+          }
+        }
+        document.getElementById("line-count").textContent = String(lineCount);
+        updateSummary(totals, bySize);
+        applyColumnFilters();
+        return totals;
+      }
+
+      function serializeRow(tr) {
+        const data = {};
+        for (const input of tr.querySelectorAll("[data-field]")) data[input.dataset.field] = input.value;
+        data.description = tr.querySelector("[data-description]").value;
+        return data;
+      }
+
+      function serializeRows() {
+        return Array.from(rowsElement.querySelectorAll("tr"), serializeRow);
+      }
+
+      function setCommittedRows(rows) {
+        committedRows = JSON.parse(JSON.stringify(rows));
+      }
+
+      function makeBlankRow() {
+        const row = Object.fromEntries(COLUMNS
+          .filter(([field]) => !["line", "totalLength", "lbs", "action"].includes(field))
+          .map(([field]) => [field, field === "mult" ? "1" : ""]));
+        row.description = "";
+        return row;
+      }
+
+      function cancelRowEdits(tr) {
+        let nextRow = tr.nextElementSibling;
+        const rowIndex = Array.from(rowsElement.children).indexOf(tr);
+        const savedRow = committedRows[rowIndex] || makeBlankRow();
+        for (const input of tr.querySelectorAll("[data-field]")) {
+          input.value = savedRow[input.dataset.field] ?? (input.dataset.field === "mult" ? "1" : "");
+        }
+        tr.querySelector("[data-description]").value = savedRow.description || "";
+        updateDescriptionRow(tr);
+        recalculate();
+        if (!nextRow) nextRow = addRow();
+        recordHistoryChange();
+        updateSaveStatus();
+        document.activeElement?.blur();
+      }
+
+      document.addEventListener("keydown", event => {
+        if (event.key !== "Escape" || summaryDialog.open) return;
+        const input = event.target.closest?.("[data-field]");
+        const row = input?.closest("tr");
+        if (!row) return;
+        event.preventDefault();
+        event.stopPropagation();
+        cancelRowEdits(row);
+      }, true);
+
+      function persistRows(rows = serializeRows()) {
+        if (!activeProject) return false;
+        try {
+          const savedSegments = JSON.parse(JSON.stringify(projectSegments));
+          const savedProjects = projects.map(project => project === activeProject
+            ? { ...project, rows, segments: savedSegments }
+            : project);
+          localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(savedProjects));
+          projects = savedProjects;
+          activeProject = projects.find(project => project.id === activeProject.id);
+          projectSegments = savedSegments;
+          savedRowsSnapshot = getProjectSnapshot(rows);
+          setStatus("Saved in this browser");
+          return true;
+        } catch (error) {
+          setStatus(`Could not save: ${error.message}`, "warning");
+          return false;
+        }
+      }
+
+      function updateSaveStatus() {
+        const lengthError = getLengthInputError();
+        if (lengthError) {
+          setStatus(lengthError, "warning");
+          return;
+        }
+        const hookClassWarning = getHookClassWarning();
+        if (hookClassWarning) {
+          setStatus(hookClassWarning.message, "warning");
+          return;
+        }
+        const hasUnsavedChanges = getProjectSnapshot() !== savedRowsSnapshot;
+        setStatus(hasUnsavedChanges ? "Unsaved changes" : "Saved in this browser",
+          hasUnsavedChanges ? "warning" : "saved");
+      }
+
+      function recalculateAndMarkUnsaved() {
+        recordHistoryChange();
+        recalculate();
+        updateSaveStatus();
+      }
+
+      function readLegacyRows() {
+        let stored = localStorage.getItem(STORAGE_KEY);
+        const isLegacy = !stored;
+        if (isLegacy) stored = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (!stored) return [];
+        const parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed)) throw new Error("Saved takeoff data has an unexpected format.");
+        return parsed.map(row => {
+          if (!row || typeof row !== "object" || Array.isArray(row)) {
+            throw new Error("A saved takeoff row is invalid.");
+          }
+          return isLegacy ? {
+            cls: row.shape || "",
+            span: row.runLength || "",
+            spcg: row.spacing || "",
+            mult: 1,
+            size: row.size || "",
+            L1: row.lengthPerBar || ""
+          } : row;
+        });
+      }
+
+      function loadRows(savedRows) {
+        if (!Array.isArray(savedRows)) throw new Error("Saved takeoff data has an unexpected format.");
+        let normalizedSavedValues = false;
+        for (const row of savedRows) {
+          if (!row || typeof row !== "object" || Array.isArray(row)) {
+            throw new Error("A saved takeoff row is invalid.");
+          }
+          addRow(row);
+          if (row.size !== undefined && normalizeSavedValue("size", row.size) !== row.size) normalizedSavedValues = true;
+          if (row.cls !== undefined && normalizeSavedValue("cls", row.cls) !== row.cls) normalizedSavedValues = true;
+          if (row.lap !== undefined || row.stock !== undefined) normalizedSavedValues = true;
+        }
+        return normalizedSavedValues;
+      }
+
+      function getDefaultUsers() {
+        return [
+          {
+            username: "admin",
+            password: "Password123",
+            role: "admin",
+            mustChangePassword: true,
+            createdAt: new Date().toISOString()
+          }
+        ];
+      }
+
+      function loadUsers() {
+        try {
+          const stored = localStorage.getItem(USERS_STORAGE_KEY);
+          if (!stored) {
+            const initial = getDefaultUsers();
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initial));
+            return initial;
+          }
+          const parsed = JSON.parse(stored);
+          if (!Array.isArray(parsed) || !parsed.length) {
+            const initial = getDefaultUsers();
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initial));
+            return initial;
+          }
+          const adminExists = parsed.some(u => u.username.toLowerCase() === "admin");
+          if (!adminExists) {
+            parsed.unshift({
+              username: "admin",
+              password: "Password123",
+              role: "admin",
+              mustChangePassword: true,
+              createdAt: new Date().toISOString()
+            });
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(parsed));
+          }
+          return parsed;
+        } catch {
+          const initial = getDefaultUsers();
+          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initial));
+          return initial;
+        }
+      }
+
+      function saveUsers(users) {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      }
+
+      function findUserByUsername(username) {
+        if (!username) return null;
+        const users = loadUsers();
+        return users.find(u => u.username.toLowerCase() === username.trim().toLowerCase()) || null;
+      }
+
+      let pendingChangePasswordUser = null;
+      let pendingChangePasswordRemember = false;
+
+      function promptChangePassword(user, remember = false) {
+        pendingChangePasswordUser = user;
+        pendingChangePasswordRemember = remember;
+        document.getElementById("temp-user-name").textContent = user.username;
+        document.getElementById("new-password-input").value = "";
+        document.getElementById("confirm-password-input").value = "";
+        document.getElementById("change-password-feedback").textContent = "";
+        const dialog = document.getElementById("change-password-dialog");
+        dialog.showModal();
+        document.getElementById("new-password-input").focus();
+      }
+
+      function renderUsersTable() {
+        const tbody = document.getElementById("users-table-body");
+        const countDisplay = document.getElementById("user-count-display");
+        if (!tbody) return;
+        const users = loadUsers();
+        if (countDisplay) countDisplay.textContent = String(users.length);
+        tbody.replaceChildren();
+
+        const currentUser = getAuthenticatedUser();
+
+        for (const u of users) {
+          const tr = document.createElement("tr");
+
+          // Username
+          const tdUser = document.createElement("td");
+          tdUser.textContent = u.username;
+          if (currentUser && u.username.toLowerCase() === currentUser.toLowerCase()) {
+            const selfBadge = document.createElement("small");
+            selfBadge.style.marginLeft = "6px";
+            selfBadge.style.color = "var(--blue)";
+            selfBadge.textContent = "(You)";
+            tdUser.append(selfBadge);
+          }
+          tr.append(tdUser);
+
+          // Role
+          const tdRole = document.createElement("td");
+          const roleBadge = document.createElement("span");
+          roleBadge.className = `role-badge ${u.role === "admin" ? "admin" : "estimator"}`;
+          roleBadge.textContent = u.role === "admin" ? "Administrator" : "Estimator";
+          tdRole.append(roleBadge);
+          tr.append(tdRole);
+
+          // Password status
+          const tdStatus = document.createElement("td");
+          const statusSpan = document.createElement("span");
+          if (u.mustChangePassword) {
+            statusSpan.className = "pwd-status temp";
+            statusSpan.textContent = "⚠️ Temp (Must change)";
+          } else {
+            statusSpan.className = "pwd-status active";
+            statusSpan.textContent = "✓ Active password";
+          }
+          tdStatus.append(statusSpan);
+          tr.append(tdStatus);
+
+          // Actions
+          const tdActions = document.createElement("td");
+          const actionsContainer = document.createElement("div");
+          actionsContainer.className = "user-row-actions";
+
+          const resetBtn = document.createElement("button");
+          resetBtn.type = "button";
+          resetBtn.className = "btn-table-action reset-btn";
+          resetBtn.textContent = "Reset Temp Pass";
+          resetBtn.title = `Reset password for ${u.username} to a temporary password`;
+          resetBtn.addEventListener("click", () => resetUserPassword(u.username));
+          actionsContainer.append(resetBtn);
+
+          if (u.username.toLowerCase() !== "admin" && (!currentUser || u.username.toLowerCase() !== currentUser.toLowerCase())) {
+            const delBtn = document.createElement("button");
+            delBtn.type = "button";
+            delBtn.className = "btn-table-action delete-btn";
+            delBtn.textContent = "Delete";
+            delBtn.title = `Delete account for ${u.username}`;
+            delBtn.addEventListener("click", () => deleteUser(u.username));
+            actionsContainer.append(delBtn);
+          }
+
+          tdActions.append(actionsContainer);
+          tr.append(tdActions);
+          tbody.append(tr);
+        }
+      }
+
+      function resetUserPassword(username) {
+        const tempPass = prompt(`Enter new temporary password for "${username}":`, "Password123");
+        if (tempPass === null) return;
+        const trimmed = tempPass.trim();
+        if (!trimmed) {
+          alert("Temporary password cannot be empty.");
+          return;
+        }
+        const users = loadUsers();
+        const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        if (user) {
+          user.password = trimmed;
+          user.mustChangePassword = true;
+          saveUsers(users);
+          renderUsersTable();
+          alert(`Temporary password for "${username}" set to "${trimmed}". The user will be required to change it on their next login.`);
+        }
+      }
+
+      function deleteUser(username) {
+        if (!confirm(`Are you sure you want to delete user "${username}"?`)) return;
+        let users = loadUsers();
+        users = users.filter(u => u.username.toLowerCase() !== username.toLowerCase());
+        saveUsers(users);
+        renderUsersTable();
+      }
+
+      function getAuthenticatedUser() {
+        return sessionStorage.getItem(AUTH_STORAGE_KEY) || localStorage.getItem(AUTH_STORAGE_KEY) || null;
+      }
+
+      function updateAuthenticatedUserDisplay(username) {
+        const user = findUserByUsername(username);
+        const isAdmin = Boolean(user && user.role === "admin");
+        const displayName = user ? user.username : (username || "Estimator");
+
+        const loggedUserEl = document.getElementById("logged-user-name");
+        if (loggedUserEl) loggedUserEl.textContent = displayName;
+        const appUserEl = document.getElementById("app-user-name");
+        if (appUserEl) appUserEl.textContent = displayName.toUpperCase();
+
+        const manageUsersBtn = document.getElementById("manage-users-button");
+        if (manageUsersBtn) {
+          manageUsersBtn.hidden = !isAdmin;
+        }
+
+        const showHookValuesBtn = document.getElementById("show-hook-values");
+        if (showHookValuesBtn) {
+          showHookValuesBtn.hidden = !isAdmin;
+        }
+      }
+
+      function showLoginScreen(message = "") {
+        document.getElementById("takeoff-app").hidden = true;
+        document.getElementById("project-setup").hidden = true;
+        document.getElementById("login-screen").hidden = false;
+        document.body.classList.add("setup-screen");
+        const feedback = document.getElementById("login-feedback");
+        if (feedback) feedback.textContent = message;
+      }
+
+      function showProjectSetup(message = "") {
+        const user = getAuthenticatedUser();
+        if (!user) {
+          showLoginScreen();
+          return;
+        }
+        updateAuthenticatedUserDisplay(user);
+        document.getElementById("login-screen").hidden = true;
+        document.getElementById("takeoff-app").hidden = true;
+        document.getElementById("project-setup").hidden = false;
+        document.body.classList.add("setup-screen");
+        document.getElementById("project-feedback").textContent = message;
+        renderSavedJobIds();
+        updateProjectFormForSelectedJob();
+      }
+
+      function logoutUser() {
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        document.getElementById("login-form")?.reset();
+        showLoginScreen("Signed out successfully.");
+      }
+
+      function renderSavedJobIds() {
+        renderJobDropdown();
+      }
+
+      function renderJobDropdown() {
+        const input = document.getElementById("project-form").elements.id;
+        const dropdown = document.getElementById("saved-job-dropdown");
+        const query = input.value.trim().toLowerCase();
+        const matches = projects.filter(project =>
+          !query || `${project.id} - ${project.name}`.toLowerCase().includes(query)
+        );
+        dropdown.replaceChildren();
+        if (!matches.length) {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "saved-job-empty";
+          emptyMessage.textContent = projects.length ? "No matching saved jobs" : "No saved jobs yet";
+          dropdown.append(emptyMessage);
+        } else {
+          for (const project of matches) {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "saved-job-option";
+            option.setAttribute("role", "option");
+            option.textContent = `${project.id} - ${project.name}`;
+            option.addEventListener("pointerdown", event => event.preventDefault());
+            option.addEventListener("click", () => {
+              input.value = option.textContent;
+              updateProjectFormForSelectedJob();
+              setJobDropdownOpen(false);
+              input.focus();
+            });
+            dropdown.append(option);
+          }
+        }
+      }
+
+      function setJobDropdownOpen(isOpen) {
+        const input = document.getElementById("project-form").elements.id;
+        const dropdown = document.getElementById("saved-job-dropdown");
+        const toggle = document.getElementById("job-picker-toggle");
+        const shouldOpen = isOpen && projects.length > 0;
+        dropdown.hidden = !shouldOpen;
+        input.setAttribute("aria-expanded", String(shouldOpen));
+        toggle.setAttribute("aria-expanded", String(shouldOpen));
+      }
+
+      function findProjectForJobInput(value) {
+        const normalizedValue = value.trim().toLowerCase();
+        return projects.find(project =>
+          `${project.id} - ${project.name}`.toLowerCase() === normalizedValue
+        ) || findProjectById(value);
+      }
+
+      function findProjectById(projectId) {
+        const normalizedId = projectId.trim().toLowerCase();
+        return projects.find(project => project.id.toLowerCase() === normalizedId);
+      }
+
+      function updateProjectFormForSelectedJob() {
+        const form = document.getElementById("project-form");
+        const jobId = form.elements.id.value.trim();
+        const project = findProjectForJobInput(jobId);
+        for (const control of form.querySelectorAll("[data-job-detail]")) {
+          control.disabled = !jobId;
+        }
+        document.getElementById("project-submit").textContent = project
+          ? "Save details and open job"
+          : "Create job and start takeoff";
+        if (project) {
+          form.elements.name.value = project.name;
+          form.elements.client.value = project.client;
+          form.elements.address1.value = project.address1 || project.address || "";
+          form.elements.address2.value = project.address2 || "";
+          form.elements.address3.value = project.address3 || "";
+          form.elements.city.value = project.city || project.area || "";
+          form.elements.state.value = project.state || "";
+          form.elements.zip.value = project.zip || "";
+        } else if (!jobId) {
+          for (const control of form.querySelectorAll("input[data-job-detail]")) {
+            control.value = "";
+          }
+        }
+      }
+
+      function openProject(projectId) {
+        const project = projects.find(item => item.id === projectId);
+        if (!project) {
+          showProjectSetup("The selected job could not be found.");
+          return;
+        }
+        activeProject = project;
+        for (const filter of document.querySelectorAll("[data-column-filter]")) filter.value = "";
+        rowsElement.replaceChildren();
+        rowSequence = 0;
+        selectedRow = null;
+        selectedSegmentId = null;
+        projectSegments = [];
+        copiedRow = null;
+        undoHistory = [];
+        redoHistory = [];
+        clearTimeout(historyCaptureTimer);
+        historyCaptureTimer = undefined;
+        document.getElementById("paste-line").disabled = true;
+        try {
+          projectSegments = normalizeProjectSegments(project.segments);
+          loadRows(project.rows);
+          if (!rowsElement.children.length) addRow();
+          setSelectedRow(rowsElement.firstElementChild);
+          recalculate();
+        } catch (error) {
+          rowsElement.replaceChildren();
+          activeProject = null;
+          projectSegments = [];
+          showProjectSetup(`Could not load saved job: ${error.message}`);
+          return;
+        }
+        document.getElementById("job-id-display").textContent = `Job ID: ${project.id}`;
+        document.getElementById("job-name-display").textContent = project.name;
+        document.getElementById("login-screen").hidden = true;
+        document.getElementById("project-setup").hidden = true;
+        document.getElementById("takeoff-app").hidden = false;
+        document.body.classList.remove("setup-screen");
+        const loadedRows = serializeRows();
+        setCommittedRows(loadedRows);
+        savedRowsSnapshot = getProjectSnapshot(loadedRows);
+        try {
+          localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, activeProject.id);
+          setStatus("Saved in this browser");
+        } catch (error) {
+          setStatus(`Could not save active job: ${error.message}`, "warning");
+        }
+      }
+
+      const projectForm = document.getElementById("project-form");
+      const jobIdInput = projectForm.elements.id;
+      jobIdInput.addEventListener("focus", () => {
+        renderJobDropdown();
+        setJobDropdownOpen(true);
+      });
+      jobIdInput.addEventListener("input", () => {
+        updateProjectFormForSelectedJob();
+        renderJobDropdown();
+        setJobDropdownOpen(true);
+      });
+      jobIdInput.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          setJobDropdownOpen(false);
+          return;
+        }
+        if (event.key === "ArrowDown" && !document.getElementById("saved-job-dropdown").hidden) {
+          event.preventDefault();
+          document.querySelector("#saved-job-dropdown .saved-job-option")?.focus();
+        }
+      });
+      document.getElementById("job-picker-toggle").addEventListener("click", () => {
+        const dropdown = document.getElementById("saved-job-dropdown");
+        if (dropdown.hidden) {
+          renderJobDropdown();
+          setJobDropdownOpen(true);
+        } else {
+          setJobDropdownOpen(false);
+        }
+      });
+      document.getElementById("saved-job-dropdown").addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setJobDropdownOpen(false);
+          jobIdInput.focus();
+        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const options = Array.from(document.querySelectorAll("#saved-job-dropdown .saved-job-option"));
+          const currentIndex = options.indexOf(document.activeElement);
+          const offset = event.key === "ArrowDown" ? 1 : -1;
+          options[Math.max(0, Math.min(options.length - 1, currentIndex + offset))]?.focus();
+        }
+      });
+      document.addEventListener("pointerdown", event => {
+        if (!event.target.closest(".job-id-picker")) setJobDropdownOpen(false);
+      });
+
+      projectForm.addEventListener("submit", event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const jobId = form.elements.id.value.trim();
+        const existingProject = findProjectForJobInput(jobId);
+        if (existingProject) {
+          const updatedProject = {
+            ...existingProject,
+            name: form.elements.name.value.trim(),
+            client: form.elements.client.value.trim(),
+            address1: form.elements.address1.value.trim(),
+            address2: form.elements.address2.value.trim(),
+            address3: form.elements.address3.value.trim(),
+            city: form.elements.city.value.trim(),
+            state: form.elements.state.value.trim(),
+            zip: form.elements.zip.value.trim()
+          };
+          const updatedProjects = projects.map(project =>
+            project.id === existingProject.id ? updatedProject : project
+          );
+          try {
+            localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(updatedProjects));
+            projects = updatedProjects;
+            renderSavedJobIds();
+            openProject(updatedProject.id);
+          } catch (error) {
+            document.getElementById("project-feedback").textContent = `Could not update job: ${error.message}`;
+          }
+          return;
+        }
+        const project = {
+          id: jobId,
+          name: form.elements.name.value.trim(),
+          client: form.elements.client.value.trim(),
+          address1: form.elements.address1.value.trim(),
+          address2: form.elements.address2.value.trim(),
+          address3: form.elements.address3.value.trim(),
+          city: form.elements.city.value.trim(),
+          state: form.elements.state.value.trim(),
+          zip: form.elements.zip.value.trim(),
+          rows: [],
+          segments: []
+        };
+        try {
+          if (!projects.length) project.rows = readLegacyRows();
+          projects.push(project);
+          localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+          renderSavedJobIds();
+          form.reset();
+          document.getElementById("project-submit").textContent = "Create job and start takeoff";
+          openProject(project.id);
+        } catch (error) {
+          projects = projects.filter(item => item !== project);
+          document.getElementById("project-feedback").textContent = `Could not create job: ${error.message}`;
+        }
+      });
+
+      document.getElementById("save-job").addEventListener("click", () => {
+        const lengthError = getLengthInputError();
+        if (lengthError) {
+          setStatus(lengthError, "warning");
+          return;
+        }
+        const hookClassWarning = getHookClassWarning();
+        if (hookClassWarning) {
+          setStatus(hookClassWarning.message, "warning");
+          showHookClassWarning(hookClassWarning, saveCurrentProject);
+          return;
+        }
+        saveCurrentProject();
+      });
+
+      function saveCurrentProject() {
+        const rows = serializeRows();
+        if (!persistRows(rows)) return;
+        setCommittedRows(rows);
+        updateSaveStatus();
+      }
+
+      document.getElementById("undo-action").addEventListener("click", undoTakeoff);
+      document.getElementById("redo-action").addEventListener("click", redoTakeoff);
+
+      document.getElementById("insert-line").addEventListener("click", () => {
+        insertRowAboveTarget({ mult: "1" });
+      });
+
+      document.getElementById("copy-line").addEventListener("click", () => {
+        const target = selectedRow?.isConnected ? selectedRow : rowsElement.firstElementChild;
+        if (!target) return;
+        setSelectedRow(target);
+        copiedRow = serializeRow(target);
+        document.getElementById("paste-line").disabled = false;
+        const lineNumber = target.querySelector('[data-output="line"]').textContent;
+        setStatus(`Line ${lineNumber} copied. Choose Paste to add it at the end.`);
+      });
+
+      document.getElementById("paste-line").addEventListener("click", () => {
+        if (!copiedRow) return;
+        appendCopiedRow(copiedRow);
+      });
+
+      document.getElementById("close-job").addEventListener("click", () => {
+        const hasUnsavedChanges = getProjectSnapshot() !== savedRowsSnapshot;
+        if (hasUnsavedChanges) {
+          closeConfirmDialog.showModal();
+          document.getElementById("save-and-close").focus();
+          return;
+        }
+        showProjectSetup("Job closed.");
+      });
+
+      document.getElementById("cancel-close").addEventListener("click", () => closeConfirmDialog.close());
+      document.getElementById("discard-close").addEventListener("click", () => {
+        closeConfirmDialog.close();
+        showProjectSetup("Job closed without saving the unsaved changes.");
+      });
+      document.getElementById("save-and-close").addEventListener("click", () => {
+        const lengthError = getLengthInputError();
+        if (lengthError) {
+          setStatus(lengthError, "warning");
+          return;
+        }
+        const hookClassWarning = getHookClassWarning();
+        if (hookClassWarning) {
+          closeConfirmDialog.close();
+          setStatus(hookClassWarning.message, "warning");
+          showHookClassWarning(hookClassWarning, saveAndCloseProject);
+          return;
+        }
+        saveAndCloseProject();
+      });
+
+      function saveAndCloseProject() {
+        if (!persistRows()) return;
+        const rows = serializeRows();
+        setCommittedRows(rows);
+        closeConfirmDialog.close();
+        showProjectSetup("Job saved and closed.");
+      }
+
+      document.getElementById("cancel-hook-class-change").addEventListener("click", () => {
+        hookClassWarningDialog.close();
+        if (hookClassInputToReview?.isConnected) hookClassInputToReview.focus();
+        hookClassInputToReview = null;
+        pendingHookClassConfirmation = null;
+      });
+      document.getElementById("confirm-hook-class-change").addEventListener("click", () => {
+        const confirmation = pendingHookClassConfirmation;
+        if (!confirmation || !confirmation.clsInput.isConnected) {
+          hookClassWarningDialog.close();
+          pendingHookClassConfirmation = null;
+          hookClassInputToReview = null;
+          return;
+        }
+        confirmation.clsInput.value = confirmation.expectedClass;
+        confirmation.clsInput.dispatchEvent(new Event("input", { bubbles: true }));
+        hookClassWarningDialog.close();
+        pendingHookClassConfirmation = null;
+        hookClassInputToReview = null;
+        confirmation.onConfirm();
+      });
+
+      function loadProjects() {
+        const stored = localStorage.getItem(PROJECTS_STORAGE_KEY);
+        if (!stored) return;
+        const parsed = JSON.parse(stored);
+        if (!Array.isArray(parsed)) throw new Error("Saved jobs have an unexpected format.");
+        for (const project of parsed) {
+          if (!project || typeof project !== "object" || Array.isArray(project)
+            || typeof project.id !== "string" || typeof project.name !== "string"
+            || typeof project.client !== "string"
+            || !Array.isArray(project.rows)) {
+            throw new Error("A saved job is invalid.");
+          }
+        }
+        projects = parsed;
+        renderSavedJobIds();
+      }
+
+      function csvCell(value) {
+        const text = String(value ?? "");
+        return `"${text.replaceAll('"', '""')}"`;
+      }
+
+      function exportCsv() {
+        const exportColumns = COLUMNS.filter(([field]) => field !== "action");
+        exportColumns.splice(2, 0, ["description", "Description"]);
+        const headings = exportColumns.map(([, label]) => label);
+        const records = [headings];
+        for (const [index, tr] of Array.from(rowsElement.querySelectorAll("tr")).entries()) {
+          const result = getRowResults(tr);
+          records.push(exportColumns.map(([field]) => {
+            if (field === "line") return index + 1;
+            if (field === "description") return tr.querySelector("[data-description]").value;
+            if (field === "qty") return result.qty || "";
+            if (field === "totalLength") return result.cutLength || "";
+            if (field === "lbs") return result.lbs || "";
+            return tr.querySelector(`[data-field="${field}"]`)?.value || "";
+          }));
+        }
+        const content = "\uFEFF" + records.map(record => record.map(csvCell).join(",")).join("\r\n");
+        const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "rebar-estimation-takeoff.csv";
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      document.getElementById("export-csv").addEventListener("click", exportCsv);
+      document.getElementById("print-page").addEventListener("click", () => window.print());
+
+      // Login form handler
+      const loginForm = document.getElementById("login-form");
+      if (loginForm) {
+        loginForm.addEventListener("submit", event => {
+          event.preventDefault();
+          const username = document.getElementById("login-username").value.trim();
+          const password = document.getElementById("login-password").value;
+          const remember = document.getElementById("login-remember").checked;
+          const feedback = document.getElementById("login-feedback");
+
+          if (!username) {
+            feedback.textContent = "Please enter your username.";
+            return;
+          }
+          if (!password) {
+            feedback.textContent = "Please enter your password.";
+            return;
+          }
+
+          const user = findUserByUsername(username);
+          if (!user || user.password !== password) {
+            feedback.textContent = "Invalid username or password.";
+            return;
+          }
+
+          feedback.textContent = "";
+
+          // Check if temporary password needs to be changed
+          if (user.mustChangePassword) {
+            promptChangePassword(user, remember);
+            return;
+          }
+
+          const storage = remember ? localStorage : sessionStorage;
+          storage.setItem(AUTH_STORAGE_KEY, user.username);
+          updateAuthenticatedUserDisplay(user.username);
+          showProjectSetup();
+        });
+      }
+
+      // Forgot Password Handlers
+      const forgotPasswordDialog = document.getElementById("forgot-password-dialog");
+      const forgotUsernameInput = document.getElementById("forgot-username-input");
+      const forgotResultBox = document.getElementById("forgot-password-result");
+
+      document.getElementById("forgot-password-btn")?.addEventListener("click", () => {
+        if (forgotUsernameInput) {
+          forgotUsernameInput.value = document.getElementById("login-username")?.value.trim() || "";
+        }
+        if (forgotResultBox) {
+          forgotResultBox.hidden = true;
+          forgotResultBox.className = "forgot-result-box";
+          forgotResultBox.replaceChildren();
+        }
+        forgotPasswordDialog.showModal();
+        forgotUsernameInput?.focus();
+      });
+
+      document.getElementById("close-forgot-password-btn")?.addEventListener("click", () => {
+        forgotPasswordDialog.close();
+      });
+
+      document.getElementById("close-forgot-password-x")?.addEventListener("click", () => {
+        forgotPasswordDialog.close();
+      });
+
+      forgotPasswordDialog?.addEventListener("click", event => {
+        if (event.target === forgotPasswordDialog) forgotPasswordDialog.close();
+      });
+
+      document.getElementById("forgot-check-btn")?.addEventListener("click", () => {
+        const username = forgotUsernameInput.value.trim();
+        if (!username) {
+          forgotResultBox.className = "forgot-result-box error";
+          forgotResultBox.textContent = "Please enter your username.";
+          forgotResultBox.hidden = false;
+          return;
+        }
+
+        const user = findUserByUsername(username);
+        if (!user) {
+          forgotResultBox.className = "forgot-result-box error";
+          forgotResultBox.textContent = `No account found with username "${username}". Please check the spelling or ask your administrator to create an account.`;
+          forgotResultBox.hidden = false;
+          return;
+        }
+
+        forgotResultBox.replaceChildren();
+
+        if (user.role === "admin") {
+          forgotResultBox.className = "forgot-result-box";
+          const title = document.createElement("strong");
+          title.textContent = "Administrator Account Verified";
+          const desc = document.createElement("p");
+          desc.style.margin = "6px 0 12px";
+          desc.textContent = "If you lost access to your admin password, you can reset the administrator account back to the default temporary password (Password123). You will be required to set a new password on your next sign-in.";
+
+          const resetAdminBtn = document.createElement("button");
+          resetAdminBtn.type = "button";
+          resetAdminBtn.className = "btn-table-action reset-btn";
+          resetAdminBtn.style.cssText = "min-height: 36px; padding: 6px 14px; font-weight: 700; width: 100%;";
+          resetAdminBtn.textContent = "Reset Admin to Temporary Password (Password123)";
+          resetAdminBtn.addEventListener("click", () => {
+            const users = loadUsers();
+            const admin = users.find(u => u.username.toLowerCase() === "admin");
+            if (admin) {
+              admin.password = "Password123";
+              admin.mustChangePassword = true;
+              saveUsers(users);
+              forgotResultBox.className = "forgot-result-box success";
+              forgotResultBox.innerHTML = `<strong>Success!</strong><p style="margin: 6px 0 0;">Admin password has been reset to temporary password <code>Password123</code>. You can now close this window, sign in with Password123, and set your new password.</p>`;
+            }
+          });
+
+          forgotResultBox.append(title, desc, resetAdminBtn);
+          forgotResultBox.hidden = false;
+        } else {
+          forgotResultBox.className = "forgot-result-box";
+          const title = document.createElement("strong");
+          title.textContent = `Account Found (${user.username})`;
+          const desc = document.createElement("p");
+          desc.style.margin = "6px 0 0";
+          desc.textContent = "To reset your password, please contact your System Administrator (admin). The administrator can reset your temporary password in the Manage Users dashboard.";
+          forgotResultBox.append(title, desc);
+          forgotResultBox.hidden = false;
+        }
+      });
+
+      // Toggle password visibility (Login form)
+      const togglePasswordBtn = document.getElementById("toggle-password-visibility");
+      const passwordInput = document.getElementById("login-password");
+      let passwordShown = false;
+      if (togglePasswordBtn && passwordInput) {
+        togglePasswordBtn.addEventListener("click", () => {
+          passwordShown = !passwordShown;
+          passwordInput.type = passwordShown ? "text" : "password";
+          togglePasswordBtn.setAttribute("aria-label", passwordShown ? "Hide password" : "Show password");
+          togglePasswordBtn.innerHTML = passwordShown
+            ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+            : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+        });
+      }
+
+      // Change Password Form handler
+      const changePasswordForm = document.getElementById("change-password-form");
+      if (changePasswordForm) {
+        changePasswordForm.addEventListener("submit", event => {
+          event.preventDefault();
+          if (!pendingChangePasswordUser) return;
+          const newPassword = document.getElementById("new-password-input").value;
+          const confirmPassword = document.getElementById("confirm-password-input").value;
+          const feedback = document.getElementById("change-password-feedback");
+
+          if (newPassword.length < 6) {
+            feedback.textContent = "New password must be at least 6 characters.";
+            return;
+          }
+          if (newPassword === pendingChangePasswordUser.password) {
+            feedback.textContent = "New password cannot be the same as your temporary password.";
+            return;
+          }
+          if (newPassword !== confirmPassword) {
+            feedback.textContent = "New password and Confirm password do not match.";
+            return;
+          }
+
+          // Update user in storage
+          const users = loadUsers();
+          const userIdx = users.findIndex(u => u.username.toLowerCase() === pendingChangePasswordUser.username.toLowerCase());
+          if (userIdx !== -1) {
+            users[userIdx].password = newPassword;
+            users[userIdx].mustChangePassword = false;
+            saveUsers(users);
+          }
+
+          const authUsername = pendingChangePasswordUser.username;
+          const storage = pendingChangePasswordRemember ? localStorage : sessionStorage;
+          storage.setItem(AUTH_STORAGE_KEY, authUsername);
+
+          document.getElementById("change-password-dialog").close();
+          pendingChangePasswordUser = null;
+          pendingChangePasswordRemember = false;
+
+          updateAuthenticatedUserDisplay(authUsername);
+          showProjectSetup(`Welcome, ${authUsername}! Your new password has been set successfully.`);
+        });
+      }
+
+      document.getElementById("cancel-change-password-btn")?.addEventListener("click", () => {
+        document.getElementById("change-password-dialog").close();
+        pendingChangePasswordUser = null;
+        pendingChangePasswordRemember = false;
+        showLoginScreen("Password change cancelled. Please sign in again.");
+      });
+
+      document.getElementById("change-password-dialog")?.addEventListener("cancel", event => {
+        event.preventDefault();
+        document.getElementById("cancel-change-password-btn")?.click();
+      });
+
+      // Toggle new password visibility (Change password dialog)
+      const toggleNewPasswordBtn = document.getElementById("toggle-new-password-visibility");
+      const newPasswordInput = document.getElementById("new-password-input");
+      let newPasswordShown = false;
+      if (toggleNewPasswordBtn && newPasswordInput) {
+        toggleNewPasswordBtn.addEventListener("click", () => {
+          newPasswordShown = !newPasswordShown;
+          newPasswordInput.type = newPasswordShown ? "text" : "password";
+          toggleNewPasswordBtn.setAttribute("aria-label", newPasswordShown ? "Hide password" : "Show password");
+          toggleNewPasswordBtn.innerHTML = newPasswordShown
+            ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+            : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+        });
+      }
+
+      // Admin Create User form handler
+      const createUserForm = document.getElementById("create-user-form");
+      if (createUserForm) {
+        createUserForm.addEventListener("submit", event => {
+          event.preventDefault();
+          const username = document.getElementById("new-user-username").value.trim();
+          const tempPassword = document.getElementById("new-user-password").value.trim();
+          const role = document.getElementById("new-user-role").value;
+          const feedback = document.getElementById("create-user-feedback");
+
+          if (!username) {
+            feedback.style.color = "var(--red)";
+            feedback.textContent = "Please enter a username.";
+            return;
+          }
+          if (username.length < 3) {
+            feedback.style.color = "var(--red)";
+            feedback.textContent = "Username must be at least 3 characters.";
+            return;
+          }
+          if (!tempPassword) {
+            feedback.style.color = "var(--red)";
+            feedback.textContent = "Please enter a temporary password.";
+            return;
+          }
+
+          const users = loadUsers();
+          if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+            feedback.style.color = "var(--red)";
+            feedback.textContent = `Username "${username}" already exists. Please choose a different username.`;
+            return;
+          }
+
+          users.push({
+            username,
+            password: tempPassword,
+            role,
+            mustChangePassword: true,
+            createdAt: new Date().toISOString()
+          });
+          saveUsers(users);
+
+          createUserForm.reset();
+          document.getElementById("new-user-password").value = "Password123";
+          feedback.style.color = "var(--green)";
+          feedback.textContent = `User "${username}" created! Temporary password is "${tempPassword}". User must set their own password on first login.`;
+          renderUsersTable();
+        });
+      }
+
+      // User Management Dialog Handlers
+      const userManagementDialog = document.getElementById("user-management-dialog");
+      document.getElementById("manage-users-button")?.addEventListener("click", () => {
+        renderUsersTable();
+        document.getElementById("create-user-feedback").textContent = "";
+        userManagementDialog.showModal();
+        document.getElementById("new-user-username").focus();
+      });
+      document.getElementById("close-user-management-btn")?.addEventListener("click", () => {
+        userManagementDialog.close();
+      });
+      document.getElementById("close-user-management-x")?.addEventListener("click", () => {
+        userManagementDialog.close();
+      });
+      userManagementDialog?.addEventListener("click", event => {
+        if (event.target === userManagementDialog) userManagementDialog.close();
+      });
+
+      // Logout handler
+      document.getElementById("logout-button")?.addEventListener("click", logoutUser);
+
+      // Switch job handler in topline
+      document.getElementById("switch-job-topline")?.addEventListener("click", () => {
+        document.getElementById("close-job")?.click();
+      });
+      document.getElementById("edit-project-topline")?.addEventListener("click", () => {
+        if (!activeProject) return;
+        const projectForm = document.getElementById("project-form");
+        projectForm.elements.id.value = activeProject.id;
+        updateProjectFormForSelectedJob();
+        document.getElementById("close-job")?.click();
+      });
+
+      try {
+        loadUsers();
+        loadProjects();
+        const currentUser = getAuthenticatedUser();
+        if (currentUser) {
+          updateAuthenticatedUserDisplay(currentUser);
+          showProjectSetup();
+        } else {
+          showLoginScreen();
+        }
+      } catch (error) {
+        showLoginScreen(`Could not load saved data: ${error.message}`);
+      }
+    })();
+  </script>
+</body>
+</html>
